@@ -1,0 +1,38 @@
+{
+  "name": "nerfstudio-colmap",
+  "image": "ghcr.io/nerfstudio-project/nerfstudio:latest",
+
+  // Mount your project into /workspace
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace",
+
+  // GPU + larger shared memory
+  // "runArgs": ["--gpus", "all", "--shm-size=12gb", "--ipc=host"],
+  "runArgs": [
+    "--gpus", "all",
+    "--shm-size=12gb",
+    "-e", "DISPLAY=${env:DISPLAY}",
+    "-e", "QT_X11_NO_MITSHM=1",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw",
+    "--device=/dev/dri"
+  ],
+
+  // Optional viewer port
+  "forwardPorts": [7007],
+
+  // (Temporary) don't force a user; use the image default
+  // "remoteUser": "user",
+
+  // Quick sanity checks
+  "postStartCommand": "echo 'Inside container:' && whoami && nvidia-smi && colmap -h >/dev/null 2>&1 || true"
+}
+// {
+//   "name": "nerfstudio-colmap",
+//   "build": { "dockerfile": "Dockerfile", "context": ".devcontainer" },
+//   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+//   "workspaceFolder": "/workspace",
+//   "runArgs": ["--gpus","all","--shm-size=12gb"],
+//   "forwardPorts": [7007],
+//   "remoteUser": "root", 
+//   "postStartCommand": "echo 'Inside container:' && whoami && nvidia-smi || true"
+// }
