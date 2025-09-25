@@ -42,7 +42,8 @@ def generate_consistant_views(experiment_path: Path,
                               project_name = "nerfstudio-project",
                               run_colmap: bool = True, 
                               cleanup: bool = True, 
-                              save_renders: bool = True, 
+                              save_renders: bool = True,
+                              disable_viewer: bool = False,  
                               views: List[np.ndarray] | None = None, 
                               save_dir: Path = Path("rendered")) -> List[th.Tensor] : 
     """
@@ -86,36 +87,51 @@ def generate_consistant_views(experiment_path: Path,
         print(f"Sparse time : {t_sparse:0.4f}s, \nDense time : {t_dense:.4f}s")
 
     # Train a gsplat to the current scene 
-    ckpt_path = train_gsplat(data_dir=dataset_path, working_dir=experiment_path, max_steps = 4000, experiment_name = experiment_name, project_name = project_name, disable_viewer = True, downscale_factor = 1)
+    ckpt_path = train_gsplat(data_dir=dataset_path, working_dir=experiment_path, max_steps = 4000, experiment_name = experiment_name, project_name = project_name, disable_viewer = disable_viewer, track_training = True, downscale_factor = 1)
 
     # Render new images for from this gsplat 
-    imgs = render_gsplat(ckpt_path=ckpt_path, data_dir=dataset_path, working_dir=experiment_path, experiment_name = experiment_name, project_name = project_name, out_dir=save_dir, cameras=cameras, save_images=save_renders, downscale_factor=1)
+    imgs, img_names = render_gsplat(ckpt_path=ckpt_path, data_dir=dataset_path, working_dir=experiment_path, experiment_name = experiment_name, project_name = project_name, out_dir=save_dir, cameras=cameras, save_images=save_renders, downscale_factor=1)
 
     if cleanup : 
         remove(experiment_path)
 
-    return imgs
+    return imgs, img_names 
 
 
 if __name__ == "__main__": 
-    dataset_path = Path("dataset")
-    experiment_path = Path("temp") 
+    # dataset_path = Path("dataset")
+    # experiment_path = Path("temp") 
+    dataset_path = Path("dataset2")
+    experiment_path = Path("temp2") 
     experiment_name = "test" 
     project_name = "test"
     interpolations = intermediate_poses_between_training_views(scene_path=dataset_path, n_between=8)
     views = [c[3] for c in interpolations]
-    generate_consistant_views(experiment_path=experiment_path, 
-                              dataset_path=Path("dataset"), 
+    imgs, img_names = generate_consistant_views(experiment_path=experiment_path, 
+                              dataset_path=dataset_path, 
                               views=views, 
                               experiment_name=experiment_name,
                               project_name=project_name,
                               run_colmap=False, 
                               cleanup=False, 
                               save_renders=True, 
+                              disable_viewer=False, 
                               save_dir=Path("rendered"))
-    
+    # Store views and image names for generating the same poses for evaluation 
+    with open(dataset_path / "transforms.json", 'r') as file:
+        experiment_args = json.load(file)
+
+    my_dict = {"frame_idx": experiment_args["frame_idx"],
+               "recording_key": experiment_args["recording_key"],
+               "views": {}} 
+    for (view, name) in zip(views, img_names): 
+        my_dict["views"][str(name)] = list(view.flatten())
+    with open(dataset_path / "rendered" / "views.json", "w", encoding="utf-8") as f:
+        json.dump(my_dict, f, ensure_ascii=False, indent=2)
+
+    # Make the gifs for a training of a gsplat 
     from make_gif import make_gif
-    setting = "no"
+    setting = "sideways"
     make_gif(path=dataset_path / "rendered", out_path=Path(f"gifs/gsplat_{setting}_fly_around.gif"))
     make_gif(path=Path("temp/images/train"), out_path=Path(f"gifs/gsplat_{setting}_train.gif"))
     make_gif(path=Path("temp/images/val"), out_path=Path(f"gifs/gsplat_{setting}_val.gif"))

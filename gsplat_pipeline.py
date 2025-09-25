@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 import copy
 import re 
 
@@ -249,7 +249,7 @@ def render_gsplat(ckpt_path: Path,
                   experiment_name: str = "gsplat_exp",
                   project_name: str = "nerfstudio-project", 
                   save_images: bool = True, 
-                  downscale_factor: int = 1) -> List[Path]: 
+                  downscale_factor: int = 1) -> Tuple[List[Path], List[str]]: 
     """
     This function takes in parameters to an already trained Gsplat and renders the given views. 
     """
@@ -266,15 +266,17 @@ def render_gsplat(ckpt_path: Path,
 
     # Render views 
     images: List[np.ndarray] = []
+    image_names: List[str] = []
     for i in range(len(cameras)):
         out = model.get_outputs_for_camera(cameras[i:i+1])
         rgb = out['rgb'].clamp(0,1).cpu().numpy()
         img = (rgb*255.0 + 0.5).astype(np.uint8)
         if save_images: 
             p = out_dir / f"render_{i:04d}.png"
+            image_names.append(p)
             Image.fromarray(img).save(p)
         images.append(np.transpose(img, (2, 0, 1)))
-    return torch.tensor(np.stack(images))
+    return torch.tensor(np.stack(images)), image_names
 
 
 
@@ -283,7 +285,7 @@ if __name__ == "__main__":
     working_dir = Path("temp")
     # from time import perf_counter
     # t0 = perf_counter()
-    cfg_path = train_gsplat(data, working_dir=working_dir, max_steps=6000, disable_viewer=True, track_training=True, experiment_name="demo_gsplat")
+    cfg_path = train_gsplat(data, working_dir=working_dir, max_steps=6000, disable_viewer=False, track_training=True, experiment_name="demo_gsplat")
     # print(f"Time : {perf_counter() - t0:0.4f}s")
 
     from make_gif import make_gif

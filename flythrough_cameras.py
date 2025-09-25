@@ -100,5 +100,5 @@ def intermediate_poses_between_training_views(scene_path, n_between=2):
     for i in range(len(c2ws)-1):
         M0, M1 = c2ws[i], c2ws[i+1]
         for t in ts:
-            Ts.append((i, i+1, t, _pose_slerp(M0, M1, t)))
-    return Ts  # list of (i, j, t, 4x4)
+            Ts.append(_pose_slerp(M0, M1, t))
+    return Ts 

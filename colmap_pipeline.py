@@ -214,11 +214,11 @@ def run_colmap_frozen_poses(data: Path, workdir: Path, cleanup: bool = True, spa
     sparse = workdir / "sparse_triangulated"
     dense = workdir / "dense"
     sparse_ply = data / "ply.ply"
+    ensure_dir(workdir)
 
     build_and_write_colmap_text(extrinsics, images_dir=images, out_dir=text_model, model="PINHOLE")
 
     # Checkups 
-    ensure_dir(workdir)
     if not images.exists():
         print(f"[ERR] Images dir not found: {images}", file=sys.stderr)
         sys.exit(2)

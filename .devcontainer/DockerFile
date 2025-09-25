@@ -1,2 +1,0 @@
-FROM ghcr.io/nerfstudio-project/nerfstudio:latest
-RUN apt-get update && apt-get install -y --no-install-recommends git python3-pip  && rm -rf /var/lib/apt/lists/*
