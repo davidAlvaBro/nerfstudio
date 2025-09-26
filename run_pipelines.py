@@ -1,4 +1,3 @@
-from typing import List, Sequence, Tuple 
 import json
 from pathlib import Path
 import argparse
@@ -26,7 +25,7 @@ def run_pipelines():
     args = parser.parse_args()
     dataset_path = Path(args.image)
     working_dir = Path("temp")
-    rendered_images = dataset_path / ("baseling_renders") #TODO figure out a better name 
+    rendered_images = dataset_path / ("baseline_g_renders") #TODO figure out a better name 
 
     # 1. Read the transforms.json and check that every entry is valid 
     with open(dataset_path / "transforms.json", 'r') as file:
@@ -44,7 +43,7 @@ def run_pipelines():
     frames_to_validate_on = intermediate_poses_between_training_views(scene_path=dataset_path, n_between=args.n_new_views) # Preread cameras are not necessary for this way of getting new views 
     c2w = np.array(frames_to_validate_on)
     n = len(c2w)
-    nerfstudio_cameras = Cameras(camera_to_worlds=c2w[:, :3, :4],
+    nerfstudio_cameras = Cameras(camera_to_worlds=th.from_numpy(c2w[:, :3, :4]).float(),
                                  fx=th.full((n, 1), float(fx)),
                                  fy=th.full((n, 1), float(fy)),
                                  cx=th.full((n, 1), float(cx)),
@@ -62,16 +61,16 @@ def run_pipelines():
     # TODO Should I move this outside the normal file structure so the normal structure can be purged while keeping the gsplat? 
 
     # 5. Render the new views with the Gaussian splatting. 
-    rendered_images, rendered_image_names = render_gsplat(ckpt_path=ckpt_path, 
+    _, rendered_image_names = render_gsplat(ckpt_path=ckpt_path, 
                                                           working_dir=working_dir, 
                                                           data_dir=dataset_path, 
                                                           out_dir=rendered_images, 
                                                           cameras=nerfstudio_cameras, 
                                                           experiment_name="gaussian", 
                                                           project_name=args.name)
-
+    
     # 6. Run YOLO pipeline 
-    yolo_annotations = apply_yolo(images_path=rendered_images, out_path=rendered_images)
+    yolo_annotations = apply_yolo(images_path=rendered_images, out_path=dataset_path)
 
     # 7. Save evaluation camera views so that they can be compared 
     my_dict = {"frame_idx": run_args["frame_idx"],
@@ -82,7 +81,9 @@ def run_pipelines():
     with open(dataset_path / "views.json", "w", encoding="utf-8") as f:
         json.dump(my_dict, f, ensure_ascii=False, indent=2)
 
+    # TODO add cleanup if I want it 
 
 
-if __name__ == "__main__"(): 
+
+if __name__ == "__main__": 
     run_pipelines()

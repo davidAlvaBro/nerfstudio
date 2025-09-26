@@ -1,10 +1,17 @@
 {
   "name": "nerfstudio-colmap",
-  "image": "ghcr.io/nerfstudio-project/nerfstudio:latest",
+  // "image": "ghcr.io/nerfstudio-project/nerfstudio:latest",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."          // build context = repo root
+  },
 
   // Mount your project into /workspace
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=/home/dbl@grazper.net/data,target=/workspace/data,type=bind"
+  ],
 
   // GPU + larger shared memory
   // "runArgs": ["--gpus", "all", "--shm-size=12gb", "--ipc=host"],
@@ -19,6 +26,22 @@
 
   // Optional viewer port
   "forwardPorts": [7007],
+
+  // Install VS Code extensions in the container automatically
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",          // Python (includes debugger)
+        "ms-python.vscode-pylance",  // Language server
+        "ms-toolsai.jupyter",        // Notebooks (optional)
+        "ms-azuretools.vscode-docker"// Docker ext (optional)
+      ],
+      "settings": {
+        // Chooses which python to use (I use usr/bin/python when in dev container)
+        "python.defaultInterpreterPath": "/usr/bin/python"
+      }
+    }
+  },
 
   // (Temporary) don't force a user; use the image default
   // "remoteUser": "user",
