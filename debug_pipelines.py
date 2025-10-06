@@ -101,12 +101,12 @@ def generate_consistant_views(experiment_path: Path,
 if __name__ == "__main__": 
     # dataset_path = Path("dataset")
     # experiment_path = Path("temp") 
-    dataset_path = Path("dataset2")
-    experiment_path = Path("temp2") 
+    dataset_path = Path("data/set1")
+    experiment_path = Path("temp") 
     experiment_name = "test" 
     project_name = "test"
-    interpolations = intermediate_poses_between_training_views(scene_path=dataset_path, n_between=8)
-    views = [c[3] for c in interpolations]
+    views = intermediate_poses_between_training_views(scene_path=dataset_path, n_between=8)
+    # views = [c for c in interpolations]
     imgs, img_names = generate_consistant_views(experiment_path=experiment_path, 
                               dataset_path=dataset_path, 
                               views=views, 
@@ -129,9 +129,9 @@ if __name__ == "__main__":
     with open(dataset_path / "rendered" / "views.json", "w", encoding="utf-8") as f:
         json.dump(my_dict, f, ensure_ascii=False, indent=2)
 
-    # Make the gifs for a training of a gsplat 
-    from make_gif import make_gif
-    setting = "sideways"
-    make_gif(path=dataset_path / "rendered", out_path=Path(f"gifs/gsplat_{setting}_fly_around.gif"))
-    make_gif(path=Path("temp/images/train"), out_path=Path(f"gifs/gsplat_{setting}_train.gif"))
-    make_gif(path=Path("temp/images/val"), out_path=Path(f"gifs/gsplat_{setting}_val.gif"))
+    # # Make the gifs for a training of a gsplat 
+    # from make_gif import make_gif
+    # setting = "sideways"
+    # make_gif(path=dataset_path / "rendered", out_path=Path(f"gifs/gsplat_{setting}_fly_around.gif"))
+    # make_gif(path=Path("temp/images/train"), out_path=Path(f"gifs/gsplat_{setting}_train.gif"))
+    # make_gif(path=Path("temp/images/val"), out_path=Path(f"gifs/gsplat_{setting}_val.gif"))

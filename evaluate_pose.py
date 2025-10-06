@@ -147,7 +147,7 @@ def project_poses(poses_path: Path, output_path: Path | None = None) -> None :
         cv2.imwrite(output_path / img_path.name, img)
 
 if __name__ == "__main__": 
-    project_poses(Path("dataset2/rendered/pred_annotation.npz"))
+    project_poses(Path("dataset/rendered/pred_annotation.npz"))
 
 # if __name__ == "__main__":
 #     gt_pose_path = Path("dataset2/rendered/gt_annotation.npz")

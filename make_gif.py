@@ -69,8 +69,10 @@ def make_gif(path: Path, out_path: Path):
 
 if __name__ == "__main__": 
     # out_path = Path("gifs/gsplat_sparse_fly_around.gif")
-    out_path = Path("gifs/gsplat_with_poses.gif")
-    path = Path("dataset2/rendered/renders")
-    # make_gif(path=path, out_path=out_path)
-    downsample_gif(in_path=out_path, out_path=out_path)
+    # out_path = Path("gifs/gsplat_with_poses.gif")
+    # path = Path("dataset2/rendered/renders")
+    out_path = Path("gifs/pikachu.gif")
+    path = Path("pikachu")
+    make_gif(path=path, out_path=out_path)
+    # downsample_gif(in_path=out_path, out_path=out_path)
     # downsample_gif("input.gif", "output_every_other.gif")

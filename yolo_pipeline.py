@@ -79,4 +79,4 @@ def apply_yolo(images_path: Path, out_path: Path) -> None:
     return out_path / "pred_annotation.npz"
     
 if __name__ == "__main__": 
-    apply_yolo(Path("dataset2/rendered"))
+    apply_yolo(Path("dataset/rendered"), Path("dataset/rendered"))
