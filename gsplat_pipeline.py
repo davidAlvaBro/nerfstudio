@@ -116,7 +116,7 @@ def add_fixed_train_render_callback(
 ############### TO here 
 
 
-def initialize_gsplat_config(data_dir: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1):
+def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1):
     """
     Initializes the part necessesary for both training and rendering.   
     """
@@ -124,7 +124,7 @@ def initialize_gsplat_config(data_dir: Path, working_dir: Path, experiment_name:
     base_cfg: TrainerConfig = copy.deepcopy(method_configs["splatfacto"])  
 
     # Customized settings  
-    base_cfg.data = data_dir
+    base_cfg.data = metadata_path
     # TODO figure out which file system layout I actually want for my experiments.
     # (Outer most could be pipeline, then )
     # Setting the name of the working dir 
@@ -133,7 +133,7 @@ def initialize_gsplat_config(data_dir: Path, working_dir: Path, experiment_name:
     base_cfg.experiment_name = experiment_name
     base_cfg.timestamp = "nah"
     dp = NerfstudioDataParserConfig(
-        data=data_dir,
+        data=metadata_path,
         downscale_factor=downscale_factor,
         orientation_method="none",
         center_method="none",
@@ -144,7 +144,7 @@ def initialize_gsplat_config(data_dir: Path, working_dir: Path, experiment_name:
     return base_cfg 
 
 
-def train_gsplat(data_dir: Path, 
+def train_gsplat(metadata_path: Path, 
                      working_dir: Path,
                      max_steps: int = 10_000, 
                      experiment_name: str = "gsplat_exp",
@@ -163,7 +163,7 @@ def train_gsplat(data_dir: Path,
 
     # # Edit settings which have been passed in 
     # base_cfg.data = data_dir
-    base_cfg = initialize_gsplat_config(data_dir=data_dir, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(metadata_path=metadata_path, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
     base_cfg.max_num_iterations = int(max_steps)
 
     # TODO remove the below if it does nothing, otherwise purge the if statement and move it up under dp 
@@ -243,7 +243,7 @@ def train_gsplat(data_dir: Path,
 @torch.no_grad()
 def render_gsplat(ckpt_path: Path, 
                   working_dir: Path,
-                  data_dir: Path, 
+                  metadata_path: Path, 
                   out_dir: Path, 
                   cameras: Cameras,
                   experiment_name: str = "gsplat_exp",
@@ -255,7 +255,7 @@ def render_gsplat(ckpt_path: Path,
     """
     ensure_dir(out_dir)
     # Standard gsplat settings 
-    base_cfg = initialize_gsplat_config(data_dir=data_dir, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(metadata_path=metadata_path, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
 
     base_cfg.load_checkpoint = ckpt_path 
 

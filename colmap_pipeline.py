@@ -86,12 +86,11 @@ def fmt(*vals):
     return " ".join(f"{v:.12g}" for v in vals)
 
 # TODO look at me 
-def build_and_write_colmap_text(transforms_path, images_dir, out_dir, model="PINHOLE"):
+def build_and_write_colmap_text(transforms_path, out_dir, model="PINHOLE"):
     os.makedirs(out_dir, exist_ok=True)
     data = load_transforms_json(transforms_path)
     frames = data.get("frames", [])
-    if not frames:
-        raise RuntimeError("No frames[] in transforms.json")
+    parent_folder = None
 
     # Global intrinsics (if present)
     global_w = data.get("w", None)
@@ -105,24 +104,12 @@ def build_and_write_colmap_text(transforms_path, images_dir, out_dir, model="PIN
     records = []
     for f in frames:
         # Resolve image file (transforms usually store relative paths without extension sometimes)
-        file_path = f.get("file_path") or f.get("filename") or f.get("file_name")
-        if file_path is None:
-            raise RuntimeError("Frame missing file_path/filename")
+        file_path = Path(f.get("file_path"))
+
         # normalize to basename with extension found on disk
-        base = os.path.basename(file_path)
-        # Heuristic: if the provided basename has no extension, try common ones
-        candidates = [base]
-        if "." not in base:
-            for ext in (".png", ".jpg", ".jpeg", ".JPG", ".PNG"):
-                candidates.append(base + ext)
-        img_name = None
-        for c in candidates:
-            if os.path.exists(os.path.join(images_dir, c)):
-                img_name = c
-                break
-        if img_name is None:
-            # fall back to raw basename; COLMAP just needs a name matching your actual files later
-            img_name = base
+        img_name = file_path.name
+        if parent_folder is None: 
+            parent_folder = file_path.parent
 
         # Intrinsics (per-frame overrides if present)
         w = f.get("w", global_w)
@@ -199,24 +186,24 @@ def build_and_write_colmap_text(transforms_path, images_dir, out_dir, model="PIN
         f.write("#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n")
         f.write("# Number of points: 0\n")
   
+    return parent_folder
 
-def run_colmap_frozen_poses(data: Path, workdir: Path, cleanup: bool = True, sparse_only: bool = False) -> Tuple[float, float]: 
+
+def run_colmap_frozen_poses(metadata_path: Path, workdir: Path, out_path: Path, cleanup: bool = True, sparse_only: bool = False) -> Tuple[float, float]: 
     """
     This function is a crude way to run the colmap pipeline with given extrinsics. 
     The extrinsics and images must be in the "data" directory. 
     The extrinsics are translated into the proper format, then colmap is run step for step.
     """
-    
-    images = data / Path("images")
-    extrinsics = data / Path("transforms.json")
     text_model = workdir / Path("colmap")
     db = workdir / "database.db"
     sparse = workdir / "sparse_triangulated"
     dense = workdir / "dense"
-    sparse_ply = data / "ply.ply"
     ensure_dir(workdir)
 
-    build_and_write_colmap_text(extrinsics, images_dir=images, out_dir=text_model, model="PINHOLE")
+    images = build_and_write_colmap_text(metadata_path, out_dir=text_model, model="PINHOLE")
+    sparse_ply = out_path / "ply.ply"
+    fused_ply = out_path / "fused.ply"
 
     # Checkups 
     if not images.exists():
@@ -298,7 +285,7 @@ def run_colmap_frozen_poses(data: Path, workdir: Path, cleanup: bool = True, spa
     run([
         "colmap", "stereo_fusion",
         "--workspace_path", str(dense),
-        "--output_path", str(data / "fused.ply"),
+        "--output_path", str(fused_ply),
         ])
     
     t_dense_done = perf_counter()

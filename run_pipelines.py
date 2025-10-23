@@ -9,27 +9,29 @@ from nerfstudio.cameras.cameras import Cameras, CameraType
 
 from colmap_pipeline import run_colmap_frozen_poses
 from gsplat_pipeline import train_gsplat, render_gsplat
-from utils import remove
-from flythrough_cameras import intermediate_poses_between_training_views
+from utils import remove, load_transforms_json
+# from flythrough_cameras import intermediate_poses_between_training_views
 from yolo_pipeline import apply_yolo
 
 
 
 def run_pipelines(): 
     parser = argparse.ArgumentParser(description="Run the COLMAP-pipeline, the Gaussian Splatting pipeline, Construct new views and find poses with the YOLO-pipeline.")
-    parser.add_argument("--image", required=True, type=str, help="Path to folder containing a folder 'images' and a transforms.json file.")
+    parser.add_argument("--transforms", required=True, type=str, help="Path to a transforms.json file.")
+    parser.add_argument("--output_dir", required=True, type=str, help="Path to a directory where the point clouds, 'renders', 'views.json', 'annotations.npz' go.")
     parser.add_argument("--n_new_views", default=8, type=int, help="How many new views for evaluation per original camera view")
     parser.add_argument("--clean_working_dir", default=True, type=bool, help="Whether or not the data in the working dir is deleted after use") # TODO actually do this :0
     parser.add_argument("--gaussian_splat_steps", default=4000, type=int, help="Max steps for training the Gaussian Splatting")
     parser.add_argument("--name", default="test", type=str, help="Used to identify Gaussian Splat. Not relevant if 'clean_working_dir'.")
     args = parser.parse_args()
-    dataset_path = Path(args.image)
+    metadata_path = Path(args.transforms)
     working_dir = Path("temp")
-    rendered_images = dataset_path / ("baseline_g_renders") #TODO figure out a better name 
+    output_dir = Path(args.output_dir)
+    renders = output_dir / "renders"
 
     # 1. Read the transforms.json and check that every entry is valid 
-    with open(dataset_path / "transforms.json", 'r') as file:
-        run_args = json.load(file)
+    run_args = load_transforms_json(metadata_path)
+    # TODO make the check
     
     # TODO make a flag so step 2 can be skipped if the views.json already exists and load them instead - How do I make the names match? 
     # TODO do something here 
@@ -40,7 +42,7 @@ def run_pipelines():
     cx, cy = first_frame["cx"], first_frame["cy"]
 
     # 2. Compute novel extrinsics to be used later - and a corresponding NerfStudio object  
-    frames_to_validate_on = intermediate_poses_between_training_views(scene_path=dataset_path, n_between=args.n_new_views) # Preread cameras are not necessary for this way of getting new views 
+    frames_to_validate_on = run_args["eval"]
     c2w = np.array(frames_to_validate_on)
     n = len(c2w)
     nerfstudio_cameras = Cameras(camera_to_worlds=th.from_numpy(c2w[:, :3, :4]).float(),
@@ -54,23 +56,28 @@ def run_pipelines():
 
     # 3. Run the colmap pipeline 
     # This puts a fused.ply and a ply.ply in the dataset_path for the g-splat
-    _, _ = run_colmap_frozen_poses(data=dataset_path, workdir=working_dir / "colmap", cleanup=args.clean_working_dir)
+    _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir)
+    # Add the fused.ply to the metadata.json to use it in the GS 
+    run_args = load_transforms_json(metadata_path)
+    run_args["ply_file_path"] = str(output_dir / "fused.ply")
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(run_args, f, ensure_ascii=False, indent=2)
 
     # 4. Train a Gaussian splatting 
-    ckpt_path = train_gsplat(data_dir=dataset_path, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name)
+    ckpt_path = train_gsplat(metadata_path=metadata_path, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name)
     # TODO Should I move this outside the normal file structure so the normal structure can be purged while keeping the gsplat? 
 
     # 5. Render the new views with the Gaussian splatting. 
     _, rendered_image_names = render_gsplat(ckpt_path=ckpt_path, 
                                                           working_dir=working_dir, 
-                                                          data_dir=dataset_path, 
-                                                          out_dir=rendered_images, 
+                                                          metadata_path=metadata_path, 
+                                                          out_dir=renders, 
                                                           cameras=nerfstudio_cameras, 
                                                           experiment_name="gaussian", 
                                                           project_name=args.name)
     
     # 6. Run YOLO pipeline 
-    yolo_annotations = apply_yolo(images_path=rendered_images, out_path=dataset_path)
+    yolo_annotations = apply_yolo(images_path=renders, out_path=output_dir)
 
     # 7. Save evaluation camera views so that they can be compared 
     my_dict = {"frame_idx": run_args["frame_idx"],
@@ -78,7 +85,7 @@ def run_pipelines():
                "views": {}} 
     for (view, name) in zip(frames_to_validate_on, rendered_image_names): 
         my_dict["views"][str(name)] = list(view.flatten())
-    with open(dataset_path / "views.json", "w", encoding="utf-8") as f:
+    with open(output_dir / "views.json", "w", encoding="utf-8") as f:
         json.dump(my_dict, f, ensure_ascii=False, indent=2)
 
     # TODO add cleanup if I want it 
