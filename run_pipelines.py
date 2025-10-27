@@ -19,7 +19,6 @@ def run_pipelines():
     parser = argparse.ArgumentParser(description="Run the COLMAP-pipeline, the Gaussian Splatting pipeline, Construct new views and find poses with the YOLO-pipeline.")
     parser.add_argument("--transforms", required=True, type=str, help="Path to a transforms.json file.")
     parser.add_argument("--output_dir", required=True, type=str, help="Path to a directory where the point clouds, 'renders', 'views.json', 'annotations.npz' go.")
-    parser.add_argument("--n_new_views", default=8, type=int, help="How many new views for evaluation per original camera view")
     parser.add_argument("--clean_working_dir", default=True, type=bool, help="Whether or not the data in the working dir is deleted after use") # TODO actually do this :0
     parser.add_argument("--gaussian_splat_steps", default=4000, type=int, help="Max steps for training the Gaussian Splatting")
     parser.add_argument("--name", default="test", type=str, help="Used to identify Gaussian Splat. Not relevant if 'clean_working_dir'.")
@@ -36,23 +35,13 @@ def run_pipelines():
     # TODO make a flag so step 2 can be skipped if the views.json already exists and load them instead - How do I make the names match? 
     # TODO do something here 
     # This is temporary, but I should just get the similar stuff while testing ^
-    first_frame = run_args["frames"][0]
-    H, W = first_frame["h"], first_frame["w"]
-    fx, fy = first_frame["fl_x"], first_frame["fl_y"]
-    cx, cy = first_frame["cx"], first_frame["cy"]
+    # first_frame = run_args["frames"][0]
+    # H, W = first_frame["h"], first_frame["w"]
+    # fx, fy = first_frame["fl_x"], first_frame["fl_y"]
+    # cx, cy = first_frame["cx"], first_frame["cy"]
 
     # 2. Compute novel extrinsics to be used later - and a corresponding NerfStudio object  
-    eval_frames = run_args["eval"]
-    frames_to_validate_on = [frame["transform_matrix"] for frame in eval_frames]
-    eval_c2w = np.array(frames_to_validate_on)
-    n = len(eval_c2w)
-    eval_nerfstudio_cameras = Cameras(camera_to_worlds=th.from_numpy(eval_c2w[:, :3, :4]).float(),
-                                 fx=th.full((n, 1), float(fx)),
-                                 fy=th.full((n, 1), float(fy)),
-                                 cx=th.full((n, 1), float(cx)),
-                                 cy=th.full((n, 1), float(cy)),
-                                 height=H,width=W,
-                                 camera_type=CameraType.PERSPECTIVE)
+    
   
 
     # 3. Run the colmap pipeline 

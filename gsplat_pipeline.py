@@ -10,14 +10,14 @@ from PIL import Image
 
 from nerfstudio.configs.method_configs import method_configs 
 from nerfstudio.engine.trainer import TrainerConfig
-from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.cameras.camera_optimizers import CameraOptimizerConfig
 from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataParserConfig
 from nerfstudio.configs.base_config import ViewerConfig
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackLocation
 from nerfstudio.engine.schedulers import ExponentialDecaySchedulerConfig 
 
-from utils import ensure_dir
+from utils import ensure_dir, load_transforms_json
 
 
 # TODO rewrite this function. 
@@ -252,7 +252,6 @@ def render_gsplat(ckpt_path: Path,
                   working_dir: Path,
                   metadata_path: Path, 
                   out_dir: Path, 
-                  cameras: Cameras,
                   experiment_name: str = "gsplat_exp",
                   project_name: str = "nerfstudio-project", 
                   save_images: bool = True, 
@@ -271,15 +270,32 @@ def render_gsplat(ckpt_path: Path,
     trainer.setup(test_mode="inference")
     model = trainer.pipeline.model.eval()
 
+    # Get evaluation view 
+    run_args = load_transforms_json(metadata_path)
+    eval_frames = run_args["eval"]
+    frames_to_validate_on = [frame["transform_matrix"] for frame in eval_frames]
+    validation_frame_names = [frame["file_path"] for frame in eval_frames]
+    eval_c2w = np.array(frames_to_validate_on)
+    n = len(eval_c2w)
+    ref_frame = run_args["frames"][run_args["ref"]]
+    fx, fy, cx, cy, H, W = ref_frame["fx"], ref_frame["fy"], ref_frame["cx"], ref_frame["cy"], ref_frame["h"], ref_frame["w"]
+    eval_cameras = Cameras(camera_to_worlds=torch.from_numpy(eval_c2w[:, :3, :4]).float(),
+                                 fx=torch.full((n, 1), float(fx)),
+                                 fy=torch.full((n, 1), float(fy)),
+                                 cx=torch.full((n, 1), float(cx)),
+                                 cy=torch.full((n, 1), float(cy)),
+                                 height=H,width=W,
+                                 camera_type=CameraType.PERSPECTIVE)
+
     # Render views 
     images: List[np.ndarray] = []
     image_names: List[str] = []
-    for i in range(len(cameras)):
-        out = model.get_outputs_for_camera(cameras[i:i+1])
+    for i in range(len(eval_cameras)):
+        out = model.get_outputs_for_camera(eval_cameras[i:i+1])
         rgb = out['rgb'].clamp(0,1).cpu().numpy()
         img = (rgb*255.0 + 0.5).astype(np.uint8)
         if save_images: 
-            p = out_dir / f"render_{i:04d}.png"
+            p = out_dir / validation_frame_names[i]
             image_names.append(p)
             Image.fromarray(img).save(p)
         images.append(np.transpose(img, (2, 0, 1)))
