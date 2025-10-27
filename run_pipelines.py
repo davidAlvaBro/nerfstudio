@@ -42,23 +42,23 @@ def run_pipelines():
     cx, cy = first_frame["cx"], first_frame["cy"]
 
     # 2. Compute novel extrinsics to be used later - and a corresponding NerfStudio object  
-    frames_to_validate_on = run_args["eval"]
-    c2w = np.array(frames_to_validate_on)
-    n = len(c2w)
-    nerfstudio_cameras = Cameras(camera_to_worlds=th.from_numpy(c2w[:, :3, :4]).float(),
+    eval_frames = run_args["eval"]
+    frames_to_validate_on = [frame["transform_matrix"] for frame in eval_frames]
+    eval_c2w = np.array(frames_to_validate_on)
+    n = len(eval_c2w)
+    eval_nerfstudio_cameras = Cameras(camera_to_worlds=th.from_numpy(eval_c2w[:, :3, :4]).float(),
                                  fx=th.full((n, 1), float(fx)),
                                  fy=th.full((n, 1), float(fy)),
                                  cx=th.full((n, 1), float(cx)),
                                  cy=th.full((n, 1), float(cy)),
                                  height=H,width=W,
                                  camera_type=CameraType.PERSPECTIVE)
-
+  
 
     # 3. Run the colmap pipeline 
     # This puts a fused.ply and a ply.ply in the dataset_path for the g-splat
     _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir)
     # Add the fused.ply to the metadata.json to use it in the GS 
-    run_args = load_transforms_json(metadata_path)
     run_args["ply_file_path"] = str(output_dir / "fused.ply")
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(run_args, f, ensure_ascii=False, indent=2)
@@ -72,21 +72,21 @@ def run_pipelines():
                                                           working_dir=working_dir, 
                                                           metadata_path=metadata_path, 
                                                           out_dir=renders, 
-                                                          cameras=nerfstudio_cameras, 
+                                                          cameras=eval_nerfstudio_cameras, 
                                                           experiment_name="gaussian", 
                                                           project_name=args.name)
     
     # 6. Run YOLO pipeline 
-    yolo_annotations = apply_yolo(images_path=renders, out_path=output_dir)
+    yolo_annotations = apply_yolo(metadata_path=metadata_path, out_path=output_dir)
 
-    # 7. Save evaluation camera views so that they can be compared 
-    my_dict = {"frame_idx": run_args["frame_idx"],
-               "recording_key": run_args["recording_key"],
-               "views": {}} 
-    for (view, name) in zip(frames_to_validate_on, rendered_image_names): 
-        my_dict["views"][str(name)] = list(view.flatten())
-    with open(output_dir / "views.json", "w", encoding="utf-8") as f:
-        json.dump(my_dict, f, ensure_ascii=False, indent=2)
+    # # 7. Save evaluation camera views so that they can be compared 
+    # my_dict = {"frame_idx": run_args["frame_idx"],
+    #            "recording_key": run_args["recording_key"],
+    #            "views": {}} 
+    # for (view, name) in zip(frames_to_validate_on, rendered_image_names): 
+    #     my_dict["views"][str(name)] = list(view.flatten())
+    # with open(output_dir / "views.json", "w", encoding="utf-8") as f:
+    #     json.dump(my_dict, f, ensure_ascii=False, indent=2)
 
     # TODO add cleanup if I want it 
 

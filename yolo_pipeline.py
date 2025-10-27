@@ -4,19 +4,23 @@ import numpy as np
 import torch as th 
 from ultralytics import YOLO 
 
+from utils import load_transforms_json
+
 # 
 YOLO_TO_CONTROLNET = [0, 17, 6, 8, 10, 5, 7, 9, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3] 
 # YOLO_TO_CONTROLNET = [0, 17, 5, 7, 9, 6, 8, 10, 11, 13, 15, 12, 14, 16, 1, 2, 3, 4] 
 N_DATAPOINTS_CONTROLNET = 18
 
-def apply_yolo(images_path: Path, out_path: Path) -> None: 
+def apply_yolo(metadata_path: Path, out_path: Path) -> None: 
     """
     Given a directory runs YOLOv11 on each image, 
     and stores the ControlNet-version keypoint in a metadata file in this folder. 
     """
     model = YOLO("yolo11n-pose.pt") # Just standard pose yolo model 
+    run_args = load_transforms_json(metadata_path)
+    pngs = [frame["file_path"] for frame in run_args["frames"]] + [frame["file_path"] for frame in run_args["eval"]]
 
-    pngs = [p for p in images_path.glob("*.[pP][nN][gG]") if p.is_file()]
+    # pngs = [p for p in images_path.glob("*.[pP][nN][gG]") if p.is_file()]
     
     # Book keeping 
     index = 0 

@@ -139,6 +139,8 @@ def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_
         center_method="none",
         auto_scale_poses=False,
         load_3D_points=True, # IMPORTANT : without this it does not initialize to the ".ply" cloud
+        eval_mode="fraction", # I do not want to evaluate, all frames used for training
+        train_split_fraction=1.0 # -||-
     )
     base_cfg.pipeline.datamanager.dataparser = dp  
     return base_cfg 
@@ -165,6 +167,11 @@ def train_gsplat(metadata_path: Path,
     # base_cfg.data = data_dir
     base_cfg = initialize_gsplat_config(metadata_path=metadata_path, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
     base_cfg.max_num_iterations = int(max_steps)
+    # Ensurance that no frames are being moved to evaluation if NerfStudio somehow desides to evaluate anyway
+    # TODO : Check if this does anything
+    base_cfg.steps_per_eval_batch = 0 
+    base_cfg.steps_per_eval_image = 0
+    base_cfg.steps_per_eval_all_images = 0
 
     # TODO remove the below if it does nothing, otherwise purge the if statement and move it up under dp 
     # Optional: ensure pose optimizer is OFF for fixed-poses workflow

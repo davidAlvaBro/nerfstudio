@@ -60,7 +60,7 @@ def downsample_gif(in_path: str, out_path: str):
     iio.mimsave(out_path, frames, duration=durations, loop=loop) 
 
 def make_gif(path: Path, out_path: Path): 
-    filenames = [p for p in path.iterdir()]
+    filenames = [p for p in path.iterdir() if p.suffix == ".png"]
     filenames = sorted(filenames)
     images = []
     for filename in filenames:
@@ -71,8 +71,8 @@ if __name__ == "__main__":
     # out_path = Path("gifs/gsplat_sparse_fly_around.gif")
     # out_path = Path("gifs/gsplat_with_poses.gif")
     # path = Path("dataset2/rendered/renders")
-    out_path = Path("gifs/pikachu.gif")
-    path = Path("pikachu")
+    out_path = Path("gifs/vanilla_nerf.gif")
+    path = Path("data/test_v2/rendered")
     make_gif(path=path, out_path=out_path)
     # downsample_gif(in_path=out_path, out_path=out_path)
     # downsample_gif("input.gif", "output_every_other.gif")
