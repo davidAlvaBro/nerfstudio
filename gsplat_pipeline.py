@@ -116,7 +116,7 @@ def add_fixed_train_render_callback(
 ############### TO here 
 
 
-def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1):
+def initialize_gsplat_config(data_folder: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1):
     """
     Initializes the part necessesary for both training and rendering.   
     """
@@ -124,7 +124,7 @@ def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_
     base_cfg: TrainerConfig = copy.deepcopy(method_configs["splatfacto"])  
 
     # Customized settings  
-    base_cfg.data = metadata_path
+    base_cfg.data = data_folder
     # TODO figure out which file system layout I actually want for my experiments.
     # (Outer most could be pipeline, then )
     # Setting the name of the working dir 
@@ -133,7 +133,7 @@ def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_
     base_cfg.experiment_name = experiment_name
     base_cfg.timestamp = "nah"
     dp = NerfstudioDataParserConfig(
-        data=metadata_path,
+        data=data_folder,
         downscale_factor=downscale_factor,
         orientation_method="none",
         center_method="none",
@@ -146,7 +146,7 @@ def initialize_gsplat_config(metadata_path: Path, working_dir: Path, experiment_
     return base_cfg 
 
 
-def train_gsplat(metadata_path: Path, 
+def train_gsplat(data_folder: Path, 
                      working_dir: Path,
                      max_steps: int = 10_000, 
                      experiment_name: str = "gsplat_exp",
@@ -165,7 +165,7 @@ def train_gsplat(metadata_path: Path,
 
     # # Edit settings which have been passed in 
     # base_cfg.data = data_dir
-    base_cfg = initialize_gsplat_config(metadata_path=metadata_path, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
     base_cfg.max_num_iterations = int(max_steps)
     # Ensurance that no frames are being moved to evaluation if NerfStudio somehow desides to evaluate anyway
     # TODO : Check if this does anything
@@ -250,7 +250,7 @@ def train_gsplat(metadata_path: Path,
 @torch.no_grad()
 def render_gsplat(ckpt_path: Path, 
                   working_dir: Path,
-                  metadata_path: Path, 
+                  data_folder: Path, 
                   out_dir: Path, 
                   experiment_name: str = "gsplat_exp",
                   project_name: str = "nerfstudio-project", 
@@ -259,9 +259,9 @@ def render_gsplat(ckpt_path: Path,
     """
     This function takes in parameters to an already trained Gsplat and renders the given views. 
     """
-    ensure_dir(out_dir)
+    metadata_path = data_folder / "transforms.json"
     # Standard gsplat settings 
-    base_cfg = initialize_gsplat_config(metadata_path=metadata_path, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
 
     base_cfg.load_checkpoint = ckpt_path 
 
@@ -278,7 +278,7 @@ def render_gsplat(ckpt_path: Path,
     eval_c2w = np.array(frames_to_validate_on)
     n = len(eval_c2w)
     ref_frame = run_args["frames"][run_args["ref"]]
-    fx, fy, cx, cy, H, W = ref_frame["fx"], ref_frame["fy"], ref_frame["cx"], ref_frame["cy"], ref_frame["h"], ref_frame["w"]
+    fx, fy, cx, cy, H, W = ref_frame["fl_x"], ref_frame["fl_y"], ref_frame["cx"], ref_frame["cy"], ref_frame["h"], ref_frame["w"]
     eval_cameras = Cameras(camera_to_worlds=torch.from_numpy(eval_c2w[:, :3, :4]).float(),
                                  fx=torch.full((n, 1), float(fx)),
                                  fy=torch.full((n, 1), float(fy)),
@@ -290,6 +290,9 @@ def render_gsplat(ckpt_path: Path,
     # Render views 
     images: List[np.ndarray] = []
     image_names: List[str] = []
+    ensure_dir(out_dir)
+    if Path(validation_frame_names[0]).parent != Path('.'): # TODO find a better way to do this
+        ensure_dir(out_dir / Path(validation_frame_names[0]).parent)
     for i in range(len(eval_cameras)):
         out = model.get_outputs_for_camera(eval_cameras[i:i+1])
         rgb = out['rgb'].clamp(0,1).cpu().numpy()

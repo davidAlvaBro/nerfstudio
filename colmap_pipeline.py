@@ -189,7 +189,7 @@ def build_and_write_colmap_text(transforms_path, out_dir, model="PINHOLE"):
     return parent_folder
 
 
-def run_colmap_frozen_poses(metadata_path: Path, workdir: Path, out_path: Path, cleanup: bool = True, sparse_only: bool = False) -> Tuple[float, float]: 
+def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Path, out_path: Path, cleanup: bool = True, sparse_only: bool = False) -> Tuple[float, float]: 
     """
     This function is a crude way to run the colmap pipeline with given extrinsics. 
     The extrinsics and images must be in the "data" directory. 
@@ -201,9 +201,10 @@ def run_colmap_frozen_poses(metadata_path: Path, workdir: Path, out_path: Path, 
     dense = workdir / "dense"
     ensure_dir(workdir)
 
-    images = build_and_write_colmap_text(metadata_path, out_dir=text_model, model="PINHOLE")
+    images_parent_folder = build_and_write_colmap_text(metadata_path, out_dir=text_model, model="PINHOLE")
     sparse_ply = out_path / "ply.ply"
     fused_ply = out_path / "fused.ply"
+    images = data_folder / images_parent_folder
 
     # Checkups 
     if not images.exists():
