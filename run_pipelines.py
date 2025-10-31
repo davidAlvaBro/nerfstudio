@@ -60,7 +60,7 @@ def run_pipelines():
     elif "depth_map" in run_args:
         # Fetch image, depth, intrinsics and extrinsics 
         depth_map = np.load(data_folder / run_args["depth_map"]) 
-        ref_frame = run_args["frames"][run_args["ref"]]
+        ref_frame = run_args["frames"][run_args["trajectory_ref"]]
         ref_img = cv2.cvtColor(cv2.imread(data_folder / ref_frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         ref_intrinsics = np.array([[ref_frame["fl_x"], 0, ref_frame["cx"]], 
                                    [0, ref_frame["fl_y"], ref_frame["cy"]], 
@@ -78,7 +78,7 @@ def run_pipelines():
     # If none of the two options there should already exists a 'run_args["ply_file_path"]' along with the file
 
     # 4. Train a Gaussian splatting 
-    ckpt_path = train_gsplat(data_folder=data_folder, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name)
+    ckpt_path = train_gsplat(data_folder=data_folder, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name) 
     # TODO Should I move this outside the normal file structure so the normal structure can be purged while keeping the gsplat? 
     
     # 5. Render the new views with the Gaussian splatting. 
