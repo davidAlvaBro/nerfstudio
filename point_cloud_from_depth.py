@@ -7,9 +7,14 @@ def generate_point_cloud(img: np.ndarray, depth: np.ndarray, intrinsics: np.ndar
     """
     This function projects image pixels to 3d space and stores the coordinates and colors of each pixel in a numpy array 
     """
+    # Nerfstudio is using  convention y+up and z-forward that means that my 
+    # image should go from high to low in the y direction and be negative in the z direction
+    flip_ynz = np.diag([1, -1, -1])
+    K = intrinsics @ flip_ynz # A bit weird to have a negative focal length right?
+    K_inv = np.linalg.inv(K)
+
     # Convert image coordinates to camera 3d coordinates without scale
     H, W, _ = img.shape 
-    K_inv = np.linalg.inv(intrinsics)
     u = np.arange(W) + 0.5
     v = np.arange(H) + 0.5
     uu, vv = np.meshgrid(u, v)
@@ -24,17 +29,12 @@ def generate_point_cloud(img: np.ndarray, depth: np.ndarray, intrinsics: np.ndar
         depth = depth * rescale_depth
 
     # Now we can get scale from the z-coordinates 
-    camera_coords_scaled = camera_coords*(depth / camera_coords[:,:,2])[:,:,None]
-
-    # Nerfstudio is using  convention y+up and z-forward that means that my 
-    # image should go from high to low in the y direction and be negative in the z direction
-    flip_ynz = np.diag([1, -1, -1])
-    camera_coords_nerf_conv = camera_coords_scaled @ flip_ynz.T 
+    camera_coords_scaled = camera_coords*(depth / np.abs(camera_coords[:,:,2]))[:,:,None]
 
     # Project to world coordinates
     R = c2w[:3,:3]
     t = c2w[:3, 3]
-    world_coords = camera_coords_nerf_conv @ R.T + t
+    world_coords = camera_coords_scaled @ R.T + t
     
     # At last we need to associate these 3d point with pixel RGB values 
     xyzrgb = np.zeros((H, W, 6))
@@ -43,7 +43,6 @@ def generate_point_cloud(img: np.ndarray, depth: np.ndarray, intrinsics: np.ndar
     xyzrgb = xyzrgb.reshape(-1, 6)
 
     return xyzrgb
-
 
 
 def store_point_cloud_as_ply(point_cloud: np.ndarray, path: Path) -> None: 
