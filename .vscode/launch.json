@@ -10,7 +10,11 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": false
+            "justMyCode": false,
+            "args": [
+                "--data_folder", "/workspace/data/test_controlnet/mvgen", 
+                "--output_dir", "/workspace/data/test_controlnet/mvgen"
+            ]
         }
     ]
 }

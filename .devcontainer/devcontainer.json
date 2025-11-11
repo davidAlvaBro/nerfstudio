@@ -10,7 +10,7 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "workspaceFolder": "/workspace",
   "mounts": [
-    "source=/home/dbl@grazper.net/data,target=/workspace/data,type=bind"
+    "source=/home/dbl@grazper.net/david-thesis/data,target=/workspace/data,type=bind"
   ],
 
   // GPU + larger shared memory

@@ -64,17 +64,24 @@ end_header
 
 
 if __name__ == "__main__":
-    H, W = 100, 200
-    img = np.ones((H,W, 3))
-    img[:,:1] = 2
-    img[:,:2] = 3
-    depth = np.ones((H,W))*0.5
-    K = np.array([[1175.7232666015625,0,738.018310546875],
-                  [0,1176.2763671875, 554.6907348632812],
-                  [0,0,1]]) 
-    c2w = np.array([[0.9455424547195435, -0.06263718008995056, 0.3194151818752289, 2.9413599967956543],
-                    [0.03294133022427559, 0.99468594789505, 0.09754357486963272, 1.9202120304107666],
-                    [-0.3238276243209839, -0.08170963078737259, 0.9425811767578125, 6.2920660972595215],
-                    [0.0, 0.0, 0.0, 1.0]])
+    import cv2
+    import json 
+
+    metadata_path = Path("../data/success1/mvgen/transforms.json")
+    data_folder = Path("../data/success1/mvgen")
+    output_dir = Path("../data/success1")
+
+    with open(metadata_path, "r") as f:
+        metadata = json.load(f)
+
+    depth_map = np.load(data_folder / metadata["depth_map"]) 
+    ref_frame = metadata["frames"][metadata["trajectory_ref"]]
+    ref_img = cv2.cvtColor(cv2.imread(data_folder / ref_frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+    ref_intrinsics = np.array([[ref_frame["fl_x"], 0, ref_frame["cx"]], 
+                                [0, ref_frame["fl_y"], ref_frame["cy"]], 
+                                [0, 0, 1]])
+    ref_c2w = np.array(ref_frame["transform_matrix"])
     
-    generate_point_cloud(img=img, depth=depth, intrinsics=K, c2w=c2w)
+    point_cloud = generate_point_cloud(img=ref_img, depth=depth_map, intrinsics=ref_intrinsics, c2w=ref_c2w)
+    ply_file_path = Path(output_dir / "depth_point_cloud.ply")
+    store_point_cloud_as_ply(point_cloud=point_cloud, path=ply_file_path)

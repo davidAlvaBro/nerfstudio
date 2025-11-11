@@ -2,21 +2,37 @@ import open3d as o3d
 from pathlib import Path
 import numpy as np 
 import json 
+# USUAL 
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
 
-with open("/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json", "r") as f: # Notice that the mvgen intrinsics are rescaled
+# Presentation success1
+# MVGen point cloud 
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/depth_point_cloud.ply"
+
+# Inferred Grazper point cloud 
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/success1/depth_point_cloud.ply"
+
+# Dense pointcloud from COLMAP 
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/success1/fused.ply"
+
+with open(transforms_path, "r") as f: # Notice that the mvgen intrinsics are rescaled
     data = json.load(f)
 extrinsics = []
-intrinsics = []
+# intrinsics = []
 for cam in data["frames"]: 
-    intrinsic = np.array([[cam["fl_x"], 0, cam["cx"]],
-                        [0, cam["fl_y"], cam["cy"]],
-                        [0, 0, 1]])
+    # intrinsic = np.array([[cam["fl_x"], 0, cam["cx"]],
+    #                     [0, cam["fl_y"], cam["cy"]],
+    #                     [0, 0, 1]])
     F = np.array(cam["transform_matrix"])
     extrinsics.append(F)
-    intrinsics.append(intrinsic) 
+    # intrinsics.append(intrinsic) 
 # reference cam 
 ref_extrinsics = extrinsics[data["trajectory_ref"]]
-ref_intrinsics = intrinsics[data["trajectory_ref"]]
+# ref_intrinsics = intrinsics[data["trajectory_ref"]]
 
 cameras_points = []
 ref_extrinsics_inv = np.linalg.inv(ref_extrinsics)
@@ -26,15 +42,14 @@ for c2w in extrinsics:
 cameras_points = np.stack(cameras_points)
 
 # ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/pcd.ply"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
+
 pcd = o3d.io.read_point_cloud(ply)
 if not pcd.has_normals():
     pcd.estimate_normals(fast_normal_computation=True)
 axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
 
-# pick a radius relative to scene size
-scene_diag = np.linalg.norm(pcd.get_max_bound() - pcd.get_min_bound())
-cam_sphere_radius = max(1e-6, 0.01 * scene_diag)   # adjust 0.01 as you like (bigger → more visible)
+cam_sphere_radius = 0.1
 
 cam_spheres = []
 for p in np.asarray(cameras_points):

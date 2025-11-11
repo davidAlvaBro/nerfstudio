@@ -1,0 +1,13 @@
+/dataset
+/gifs
+/legacy
+/temp
+/with_poses
+/__pycache__
+/data
+/.cache
+/.triton
+/.config
+yolo11n-pose.pt
+gsplatconfig.txt
+notes_colmap.txt
