@@ -4,8 +4,8 @@ import numpy as np
 import json 
 
 # Dense pointcloud from COLMAP 
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/success1/fused.ply"
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/fused.ply"
 
 with open(transforms_path, "r") as f: # Notice that the mvgen intrinsics are rescaled
     data = json.load(f)

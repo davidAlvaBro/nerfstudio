@@ -3,21 +3,24 @@ from pathlib import Path
 import numpy as np 
 import json 
 # USUAL 
-# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
-# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/depth_point_cloud.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/joint_point_cloud.ply"
 
 # Presentation success1
 # MVGen point cloud 
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/depth_point_cloud.ply"
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/depth_point_cloud.ply"
 
-# Inferred Grazper point cloud 
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/success1/depth_point_cloud.ply"
+# # Inferred Grazper point cloud 
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/success1/depth_point_cloud.ply"
 
-# Dense pointcloud from COLMAP 
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/success1/fused.ply"
+# # Dense pointcloud from COLMAP 
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/success1/fused.ply"
 
 with open(transforms_path, "r") as f: # Notice that the mvgen intrinsics are rescaled
     data = json.load(f)
@@ -31,7 +34,8 @@ for cam in data["frames"]:
     extrinsics.append(F)
     # intrinsics.append(intrinsic) 
 # reference cam 
-ref_extrinsics = extrinsics[data["trajectory_ref"]]
+# ref_extrinsics = extrinsics[data["trajectory_ref"]]
+ref_extrinsics = extrinsics[data["ref"]]
 # ref_intrinsics = intrinsics[data["trajectory_ref"]]
 
 cameras_points = []
@@ -52,10 +56,11 @@ axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
 cam_sphere_radius = 0.1
 
 cam_spheres = []
-for p in np.asarray(cameras_points):
+for i, p in enumerate(np.asarray(cameras_points)):
     s = o3d.geometry.TriangleMesh.create_sphere(radius=cam_sphere_radius)
     s.compute_vertex_normals()
     s.paint_uniform_color([1.0, 0.0, 0.0])  # red
+    if i == data["ref"]: s.paint_uniform_color([0.0,1.0,0.0])
     s.translate(p)                          # move sphere to camera center
     cam_spheres.append(s)
 
