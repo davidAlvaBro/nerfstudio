@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import torch as th 
 import cv2 
+import open3d as o3d 
 
 from nerfstudio.cameras.cameras import Cameras, CameraType
 
@@ -13,7 +14,7 @@ from gsplat_pipeline import train_gsplat, render_gsplat
 from utils import remove, load_transforms_json
 # from flythrough_cameras import intermediate_poses_between_training_views
 from yolo_pipeline import apply_yolo
-from point_cloud_from_depth import generate_point_cloud, store_point_cloud_as_ply
+from point_cloud_from_depth import generate_point_cloud, store_point_cloud_as_ply, remove_walls, adjust_depth_estimates_with_gt_point_cloud, multiple_point_clouds
 
 
 
@@ -36,28 +37,58 @@ def run_pipelines():
     # 1. Read the transforms.json and check that every entry is valid 
     run_args = load_transforms_json(metadata_path)
     # TODO make the check
-    
-    # TODO make a flag so step 2 can be skipped if the views.json already exists and load them instead - How do I make the names match? 
-    # TODO do something here 
-    # This is temporary, but I should just get the similar stuff while testing ^
-    # first_frame = run_args["frames"][0]
-    # H, W = first_frame["h"], first_frame["w"]
-    # fx, fy = first_frame["fl_x"], first_frame["fl_y"]
-    # cx, cy = first_frame["cx"], first_frame["cy"]
-
-    # 2. Compute novel extrinsics to be used later - and a corresponding NerfStudio object  
-    
   
     
-    # 3. Run the colmap pipeline 
+    # 2. Run the colmap pipeline if flag is set  
     # This puts a fused.ply and a ply.ply in the dataset_path for the g-splat
     if args.run_colmap:
         _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, data_folder=data_folder, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir)
-        # Add the fused.ply to the metadata.json to use it in the GS 
-        run_args["ply_file_path"] = str(output_dir / "fused.ply")
+        # Add the fused.ply to the metadata.json to use it in the GS
+        point_cloud_path = str(output_dir / "fused.ply") 
+        run_args["ply_file_path"] = point_cloud_path
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(run_args, f, ensure_ascii=False, indent=2)
-    elif "depth_map" in run_args:
+
+        # 2.5 Clean the colmap prediction to only have the people 
+        colmap_point_cloud = o3d.io.read_point_cloud(point_cloud_path)
+        colmap_people_pc = remove_walls(colmap_point_cloud)
+        colmap_people_pc_path = str(output_dir / "people_only.ply")
+        o3d.io.store_point_cloud(colmap_people_pc_path, colmap_people_pc)
+    else : 
+        colmap_people_pc_path = output_dir.parent / "people_only.ply"
+    
+    # 3. Choice of initial point cloud for gaussian splatting 
+    if args.run_colmap and args.gs_initial == "colmap": 
+        run_args["ply_file_path"] = point_cloud_path
+    elif args.gs_initial == "multiple_depths": 
+        colmap_people_pc = o3d.io.read_point_cloud(colmap_people_pc_path)
+        # Adjust depth maps 
+        adjust_depth_estimates_with_gt_point_cloud(metadata=run_args, working_dir=data_folder, target_pc=colmap_people_pc)
+        
+        imgs = [] 
+        Ks = [] 
+        c2ws = [] 
+        depths = []
+        for frame in run_args["frames"]: 
+            if not frame["file_path"][-15:-10] in ["cam20", "cam24", "cam30", "cam34"]: # TODO : should be someplace else
+                continue
+            depth = np.load(data_folder / frame["depth_path"])
+            img = cv2.cvtColor(cv2.imread(data_folder / frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+            K = np.array([[frame["fl_x"], 0, frame["cx"]],
+                        [0, frame["fl_y"], frame["cy"]],
+                        [0,0,1]])
+            c2w = np.array(frame["transform_matrix"])
+
+            imgs.append(img)
+            depths.append(depth)
+            Ks.append(K)
+            c2ws.append(c2w)
+        
+        point_cloud_np = multiple_point_clouds(imgs=imgs, depths=depths, intrinsics=Ks, c2ws=c2ws)
+        point_cloud_path = data_folder / "joint_point_cloud.ply"
+        store_point_cloud_as_ply(point_cloud_np, path=point_cloud_path)
+        run_args["ply_file_path"] = str(point_cloud_path)
+    elif args.gs_initial == "ref_depth":
         # Fetch image, depth, intrinsics and extrinsics 
         depth_map = np.load(data_folder / run_args["depth_map"]) 
         ref_frame = run_args["frames"][run_args["trajectory_ref"]]
@@ -73,9 +104,9 @@ def run_pipelines():
 
         # Store the path to the point cloud for gaussian splatting pipeline 
         run_args["ply_file_path"] = str(ply_file_path)
-        with open(metadata_path, "w", encoding="utf-8") as f:
-            json.dump(run_args, f, ensure_ascii=False, indent=2)
-    # If none of the two options there should already exists a 'run_args["ply_file_path"]' along with the file
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(run_args, f, ensure_ascii=False, indent=2)
+    # If none of the options then there should already exists a 'run_args["ply_file_path"]' along with the file
 
     # 4. Train a Gaussian splatting 
     ckpt_path = train_gsplat(data_folder=data_folder, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name) 
@@ -92,15 +123,6 @@ def run_pipelines():
     # 6. Run YOLO pipeline 
     yolo_annotations = apply_yolo(data_folder=data_folder, out_path=output_dir)
     
-    # # 7. Save evaluation camera views so that they can be compared 
-    # my_dict = {"frame_idx": run_args["frame_idx"],
-    #            "recording_key": run_args["recording_key"],
-    #            "views": {}} 
-    # for (view, name) in zip(frames_to_validate_on, rendered_image_names): 
-    #     my_dict["views"][str(name)] = list(view.flatten())
-    # with open(output_dir / "views.json", "w", encoding="utf-8") as f:
-    #     json.dump(my_dict, f, ensure_ascii=False, indent=2)
-
     # TODO add cleanup if I want it 
 
 
