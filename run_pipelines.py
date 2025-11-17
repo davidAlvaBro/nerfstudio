@@ -25,6 +25,7 @@ def run_pipelines():
     parser.add_argument("--clean_working_dir", default=True, type=bool, help="Whether or not the data in the working dir is deleted after use") # TODO actually do this :0
     parser.add_argument("--gaussian_splat_steps", default=4000, type=int, help="Max steps for training the Gaussian Splatting")
     parser.add_argument("--run_colmap", action="store_true", help="If not used either a depth map is provided in transform.json or a .ply file already exists and is referenced in transform.json")
+    parser.add_argument("--gs_initial", default="multiple_depths", help="Either 'colmap', 'multiple_depths', or 'ref_depth' depnding on which pointcloud to initialize the gs")
     parser.add_argument("--name", default="test", type=str, help="Used to identify Gaussian Splat. Not relevant if 'clean_working_dir'.")
     args = parser.parse_args()
     data_folder = Path(args.data_folder)
@@ -53,7 +54,12 @@ def run_pipelines():
         colmap_point_cloud = o3d.io.read_point_cloud(point_cloud_path)
         colmap_people_pc = remove_walls(colmap_point_cloud)
         colmap_people_pc_path = str(output_dir / "people_only.ply")
-        o3d.io.store_point_cloud(colmap_people_pc_path, colmap_people_pc)
+        o3d.io.write_point_cloud(
+            colmap_people_pc_path,
+            colmap_people_pc,
+            write_ascii=False,
+            compressed=False
+        )
     else : 
         colmap_people_pc_path = output_dir.parent / "people_only.ply"
     
