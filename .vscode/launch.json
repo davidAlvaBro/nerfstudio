@@ -12,8 +12,10 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "--data_folder", "/workspace/data/test_controlnet/mvgen", 
-                "--output_dir", "/workspace/data/test_controlnet/mvgen"
+                "--data_folder", "/workspace/data/test", 
+                "--output_dir", "/workspace/data/test", 
+                "--gs_initial", "multiple_depths", 
+                // "--run_colmap"
             ]
         }
     ]

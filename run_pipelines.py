@@ -46,13 +46,10 @@ def run_pipelines():
         _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, data_folder=data_folder, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir)
         # Add the fused.ply to the metadata.json to use it in the GS
         point_cloud_path = str(output_dir / "fused.ply") 
-        run_args["ply_file_path"] = point_cloud_path
-        with open(metadata_path, "w", encoding="utf-8") as f:
-            json.dump(run_args, f, ensure_ascii=False, indent=2)
 
         # 2.5 Clean the colmap prediction to only have the people 
         colmap_point_cloud = o3d.io.read_point_cloud(point_cloud_path)
-        colmap_people_pc = remove_walls(colmap_point_cloud)
+        colmap_people_pc = remove_walls(colmap_point_cloud) # TODO figure out why this is empty... 
         colmap_people_pc_path = str(output_dir / "people_only.ply")
         o3d.io.write_point_cloud(
             colmap_people_pc_path,
@@ -61,7 +58,7 @@ def run_pipelines():
             compressed=False
         )
     else : 
-        colmap_people_pc_path = output_dir.parent / "people_only.ply"
+        colmap_people_pc_path = str(output_dir / "people_only.ply") if output_dir.name == "test" else str(output_dir.parent / "people_only.ply")
     
     # 3. Choice of initial point cloud for gaussian splatting 
     if args.run_colmap and args.gs_initial == "colmap": 
@@ -91,8 +88,10 @@ def run_pipelines():
             c2ws.append(c2w)
         
         point_cloud_np = multiple_point_clouds(imgs=imgs, depths=depths, intrinsics=Ks, c2ws=c2ws)
+        # NOTE : these dense pointclouds are too heavy - each is about 1.5 million points
+        indicies = np.random.choice(len(point_cloud_np), size=len(point_cloud_np) // (2*len(imgs)), replace=False)
         point_cloud_path = data_folder / "joint_point_cloud.ply"
-        store_point_cloud_as_ply(point_cloud_np, path=point_cloud_path)
+        store_point_cloud_as_ply(point_cloud_np[indicies], path=point_cloud_path)
         run_args["ply_file_path"] = str(point_cloud_path)
     elif args.gs_initial == "ref_depth":
         # Fetch image, depth, intrinsics and extrinsics 

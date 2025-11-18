@@ -3,11 +3,14 @@ from pathlib import Path
 import numpy as np 
 import json 
 # USUAL 
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/transforms.json"
 ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/depth_point_cloud.ply"
-ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/joint_point_cloud.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/people_only.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/joint_point_cloud.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/fused.ply"
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/depth_point_cloud.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/joint_point_cloud.ply"
 
 # Presentation success1
 # MVGen point cloud 
