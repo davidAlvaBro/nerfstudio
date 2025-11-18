@@ -7,6 +7,10 @@ transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/transforms.json"
 ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
 ply = "/home/dbl@grazper.net/david-thesis/data/test/people_only.ply"
 ply = "/home/dbl@grazper.net/david-thesis/data/test/joint_point_cloud.ply"
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/joint_point_cloud.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/mixed2.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/people_only.ply"
 # ply = "/home/dbl@grazper.net/david-thesis/data/test/fused.ply"
 # transforms_path = "/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json"
 # ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/depth_point_cloud.ply"
@@ -76,5 +80,6 @@ for s in cam_spheres:
 
 opt = vis.get_render_option()
 opt.point_size = 2.0  # only affects the .ply points, not the spheres
+# opt.point_show_normal = True
 vis.run()
 vis.destroy_window()
