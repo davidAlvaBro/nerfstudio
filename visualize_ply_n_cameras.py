@@ -4,17 +4,32 @@ import numpy as np
 import json 
 # USUAL 
 transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/people_only.ply"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/joint_point_cloud.ply"
-transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/joint_point_cloud.ply"
-ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/mixed2.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/fused.ply"
+ply = "/home/dbl@grazper.net/david-thesis/data/test/mixed.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
 # ply = "/home/dbl@grazper.net/david-thesis/data/test/people_only.ply"
-# ply = "/home/dbl@grazper.net/david-thesis/data/test/fused.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/joint_point_cloud.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/joint_point_cloud_adjusted_mean.ply"
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/joint_point_cloud.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/mixed.ply"
+
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test_depth_control/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test_depth_control/mvgen/mixed.ply"
+
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test4/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/moge/moge.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/mixed.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/mixed2.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/mixed3.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/mvgen/mixed2.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/people_only.ply"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test4/fused.ply"
 # transforms_path = "/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json"
 # ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/depth_point_cloud.ply"
 # ply = "/home/dbl@grazper.net/david-thesis/data/pointcloud/joint_point_cloud.ply"
+# transforms_path = "/home/dbl@grazper.net/david-thesis/data/test2/mvgen/transforms.json"
+# ply = "/home/dbl@grazper.net/david-thesis/data/test2/mvgen/joint_point_cloud.ply"
 
 # Presentation success1
 # MVGen point cloud 
@@ -51,6 +66,7 @@ for c2w in extrinsics:
     # World coords (center) to ref_cam coords 
     cameras_points.append(c2w[:3, 3] / c2w[3, 3])
 cameras_points = np.stack(cameras_points)
+# cameras_points = cameras_points @ ref_extrinsics_inv[:3, :3].T + ref_extrinsics_inv[:3, 3]
 
 # ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/pcd.ply"
 # ply = "/home/dbl@grazper.net/david-thesis/data/test/mvgen/depth_point_cloud.ply"
@@ -71,12 +87,34 @@ for i, p in enumerate(np.asarray(cameras_points)):
     s.translate(p)                          # move sphere to camera center
     cam_spheres.append(s)
 
+
 # --- viewer ---
 vis = o3d.visualization.Visualizer()
 vis.create_window(window_name="PLY preview", width=1280, height=800)
 vis.add_geometry(pcd); vis.add_geometry(axes)
 for s in cam_spheres:
     vis.add_geometry(s)
+
+# View other stuff 
+directions = np.load("/home/dbl@grazper.net/david-thesis/data/test/directions.npy")
+origins = np.load("/home/dbl@grazper.net/david-thesis/data/test/origins.npy")
+
+origins = origins[:, 0:1] @ np.diag([1,-1,-1])
+directions = directions[:, 0:1] @ np.diag([1,-1,-1])
+points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(0, 10, 0.1)[:, None, None, None]
+
+# points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(-8, -6, 0.1)[:, None, None, None]
+points_3d = points_3d.reshape(-1, 3)
+# change coordinate system 
+points_3d = points_3d @ np.diag([1,-1,-1])
+points_radius = 0.05
+for i, p in enumerate(points_3d):
+    s = o3d.geometry.TriangleMesh.create_sphere(radius=points_radius)
+    s.compute_vertex_normals()
+    s.paint_uniform_color([0.0, 0.0, 1.0])  # blue
+    s.translate(p)
+    vis.add_geometry(s)
+
 
 opt = vis.get_render_option()
 opt.point_size = 2.0  # only affects the .ply points, not the spheres

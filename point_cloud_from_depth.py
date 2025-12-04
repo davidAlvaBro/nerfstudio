@@ -159,8 +159,8 @@ def depth_from_pc_and_camera(c2w: np.ndarray, K: np.ndarray, img_shape: Tuple[in
     normals = np.asarray(point_cloud.normals)
     w2c = np.linalg.inv(c2w)
     R, t = w2c[:3, :3], w2c[:3, 3]
-    # z- is forward so I thought it should be [0,0,-1], but for some reason it is [1,0,0]
-    facing_camera_indices = normals @ np.array([1,0,0]) > 0
+    # z- is forward but normals point towards the camera so we are interested in the postive z's
+    facing_camera_indices = normals @ R.T @ np.array([0,0,1]) > 0
     pc_facing_cam = point_cloud.select_by_index(np.where(facing_camera_indices)[0])
     pcc = np.asarray(pc_facing_cam.points)
     pcd_aligned = pcc @ R.T + t 
@@ -173,8 +173,8 @@ def align_median_depth(target_depth: np.ndarray, source_depth: np.ndarray, mask:
     """
     if mask is None: 
         mask = np.ones_like((target_depth), dtype=bool)
-    # median_t = np.median(target_depth[mask])
-    # median_s = np.median(source_depth[mask])
+    # median_t = np.exp(np.mean(np.log(target_depth[mask])))
+    # median_s = np.exp(np.mean(np.log(source_depth[mask])))
     median_t = np.median(target_depth[mask])
     median_s = np.median(source_depth[mask])
 
@@ -204,7 +204,7 @@ def adjust_depth_estimates_with_gt_point_cloud(metadata: dict, working_dir: Path
         np.save(working_dir / frame["depth_path"], aligned_depth)
     
 
-
+# ######################## Generates a pointcloud from depth and image #########################
 # if __name__ == "__main__":
 #     import cv2
 #     import json 
@@ -212,16 +212,15 @@ def adjust_depth_estimates_with_gt_point_cloud(metadata: dict, working_dir: Path
 #     # metadata_path = Path("../data/success1/mvgen/transforms.json")
 #     # data_folder = Path("../data/success1/mvgen")
 #     # output_dir = Path("../data/success1")
-#     metadata_path = Path("data/pointcloud/transforms.json")
-#     data_folder = Path("data/pointcloud")
-#     output_dir = Path("data/pointcloud")
+#     metadata_path = Path("../data/test/controlnet/transforms.json")
+#     data_folder = Path("../data/test/controlnet")
+#     output_dir = Path("../data/test/mvgen")
 
 #     with open(metadata_path, "r") as f:
 #         metadata = json.load(f)
 
-#     # depth_map = np.load(data_folder / metadata["depth_map"]) 
-#     depth_map = np.load(data_folder / "ref_depth_map.npy") 
 #     ref_frame = metadata["frames"][metadata["ref"]]
+#     depth_map = np.load(data_folder / ref_frame["depth_path"]) 
 #     ref_img = cv2.cvtColor(cv2.imread(data_folder / ref_frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
 #     ref_intrinsics = np.array([[ref_frame["fl_x"], 0, ref_frame["cx"]], 
 #                                 [0, ref_frame["fl_y"], ref_frame["cy"]], 
@@ -232,12 +231,43 @@ def adjust_depth_estimates_with_gt_point_cloud(metadata: dict, working_dir: Path
 #     ply_file_path = Path(output_dir / "depth_point_cloud.ply")
 #     store_point_cloud_as_ply(point_cloud=point_cloud, path=ply_file_path)
 
+# ######################### Show a pointcloud as depths maps from images #########################
 # if __name__ == "__main__": 
 #     import json 
 #     import matplotlib.pyplot as plt 
-#     from matplotlib.colors import TwoSlopeNorm
 
-#     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/pointcloud/fused.ply")
+#     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/people_only.ply")
+#     pcd = o3d.io.read_point_cloud(str(point_cloud_path))
+
+#     working_dir = Path("/home/dbl@grazper.net/david-thesis/data/test")
+#     transforms_path = working_dir / "controlnet" / "transforms.json"
+#     with open(transforms_path, "r") as f:
+#         metadata = json.load(f)
+
+#     ref_frame = metadata["frames"][metadata["ref"]]
+#     H,W = ref_frame["h"], ref_frame["w"]
+
+#     for i, frame in enumerate(metadata["frames"]): 
+#         K = np.array([[frame["fl_x"], 0, frame["cx"]],
+#                     [0, frame["fl_y"], frame["cy"]],
+#                     [0,0,1]])
+#         c2w = np.array(frame["transform_matrix"])
+
+#         # Project the reference point cloud onto the image plane (depth)
+#         depth_from_pc, mask = depth_from_pc_and_camera(c2w=c2w, K=K, img_shape=(H,W), point_cloud=pcd)
+
+#         plt.imshow(depth_from_pc)
+#         plt.colorbar()
+#         plt.axis("off")
+#         plt.tight_layout()
+#         plt.savefig(working_dir / f"depth_projections_people/{frame['file_path']}", dpi=150, bbox_inches="tight", pad_inches=0)
+#         plt.close()
+
+# ######################### Compares depth between a point cloud projection and depth map #########################
+# if __name__ == "__main__": 
+#     import json 
+#     import matplotlib.pyplot as plt 
+
 #     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/people_only.ply")
     
 #     # point_cloud_path = Path("data/pointcloud/depth_point_cloud.ply")
@@ -250,55 +280,73 @@ def adjust_depth_estimates_with_gt_point_cloud(metadata: dict, working_dir: Path
 #         metadata = json.load(f)
 
 #     adjust_depth_estimates_with_gt_point_cloud(metadata=metadata, working_dir=working_dir, target_pc=pcd)
+#     ref_frame = metadata["frames"][metadata["ref"]]
+#     H,W = ref_frame["h"], ref_frame["w"]
+#     differences = np.zeros((len(metadata["frames"]), H, W))
+#     masks = np.zeros((len(metadata["frames"]), H, W))
+#     names = []
 
-#     for frame in metadata["frames"]: 
+#     for i, frame in enumerate(metadata["frames"]): 
 #         K = np.array([[frame["fl_x"], 0, frame["cx"]],
 #                     [0, frame["fl_y"], frame["cy"]],
 #                     [0,0,1]])
-        
 #         c2w = np.array(frame["transform_matrix"])
-#         (H,W) = frame["h"], frame["w"]
 
+#         # Project the reference point cloud onto the image plane (depth)
 #         depth_from_pc, mask = depth_from_pc_and_camera(c2w=c2w, K=K, img_shape=(H,W), point_cloud=pcd)
 
 #         # Compare to estimated depths
 #         depth_estimate = np.load(working_dir / frame["depth_path"])
 
-#         # # Show point cloud depth on top of depth estimate
-#         # depth_estimate[mask] = depth_from_pc[mask]
-#         # plt.imshow(depth_estimate)
+#         # Show dif : 
+#         differences[i][mask] = depth_from_pc[mask] - depth_estimate[mask] 
+#         masks[i] = mask
+#         names.append(Path(frame["file_path"]).name)
+    
+#     alphas = mask.astype(float) 
+#     vmin = -3
+#     vmax = 3
+
+#     (working_dir / "diff_frames_aligned").mkdir(parents=True, exist_ok=True)
+#     for i in range(len(differences)):
+#         plt.figure(figsize=(4, 4))
+#         alpha = masks[i].astype(float)
+#         plt.imshow(np.zeros_like(differences[i]), cmap=plt.cm.gray, vmin=0, vmax=1)
+#         im = plt.imshow(differences[i], alpha=alpha, cmap="seismic", vmin=vmin, vmax=vmax)
+#         plt.colorbar(im, fraction=0.046, pad=0.04)
+#         plt.axis("off")
+#         plt.tight_layout()
+#         plt.savefig(working_dir / f"diff_frames_aligned/{names[i]}", dpi=150, bbox_inches="tight", pad_inches=0)
+#         plt.close()
+
+
+#         # amp = np.nanpercentile(np.abs(differences[i][mask]), 99) if mask.any() else 1.0
+#         # norm = TwoSlopeNorm(0.0, vmin=-amp, vmax=amp)
+
+#         # plt.imshow(dif, cmap='coolwarm', norm=norm, alpha=alpha)
+#         # plt.colorbar(label='Depth difference (m)')
+#         # plt.title(frame["file_path"])
+#         # plt.axis('off')
 #         # plt.show()
 
-#         # Show dif : 
-#         dif = np.zeros_like(depth_from_pc)
-#         dif[mask] = depth_from_pc[mask] - depth_estimate[mask]
 
-#         alpha = mask.astype(float)
-
-#         amp = np.nanpercentile(np.abs(dif[mask]), 99) if mask.any() else 1.0
-#         norm = TwoSlopeNorm(0.0, vmin=-amp, vmax=amp)
-
-#         plt.imshow(np.zeros_like(depth_from_pc), cmap=plt.cm.gray, vmin=0, vmax=1)
-#         plt.imshow(dif, cmap='coolwarm', norm=norm, alpha=alpha)
-#         plt.colorbar(label='Depth difference (m)')
-#         plt.title(frame["file_path"])
-#         plt.axis('off')
-#         plt.show()
-
+######################### Overlaps and adjusts pc from depth map with a gt pc #########################
 if __name__ == "__main__": 
     import json 
     import cv2 
 
     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/people_only.ply")
+    # point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test_depth_control/people_only.ply")
     pcc = o3d.io.read_point_cloud(str(point_cloud_path))
 
-    working_dir = Path("/home/dbl@grazper.net/david-thesis/data/test/mvgen")
+    working_dir = Path("/home/dbl@grazper.net/david-thesis/data/test")
     transforms_path = working_dir / "transforms.json"
     with open(transforms_path, "r") as f:
         metadata = json.load(f)
 
-    ref_frame = metadata["frames"][metadata["trajectory_ref"]]
+    ref_frame = metadata["frames"][metadata["ref"]]
     depth_map = np.load(working_dir / ref_frame["depth_path"])
+    # depth_map = np.load(working_dir / "moge/rescaled_depth.npy")
     ref_img = cv2.cvtColor(cv2.imread(working_dir / ref_frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     ref_K = np.array([[ref_frame["fl_x"], 0, ref_frame["cx"]], 
                                 [0, ref_frame["fl_y"], ref_frame["cy"]], 
@@ -314,11 +362,16 @@ if __name__ == "__main__":
     normals = np.asarray(pcc.normals)
     w2c = np.linalg.inv(ref_c2w)
     R, t = w2c[:3, :3], w2c[:3, 3]
-    facing_camera_indices = normals @ np.array([1,0,0]) > 0 # z- is forward
-    pcc = pcc.select_by_index(np.where(facing_camera_indices)[0])
+    facing_camera_indices = normals @ R.T @ np.array([0,0,1]) > 0
+    # facing_camera_indices = normals @ np.array([-1,0,0]) > 0 # z- is forward
+    # pcc = pcc.select_by_index(np.where(facing_camera_indices)[0])
+
+    # point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/fused.ply")
+    pcc = o3d.io.read_point_cloud(str(point_cloud_path))
     
+    # point_cloud_from_depth = generate_point_cloud(img=ref_img, depth=depth_map, intrinsics=ref_K, c2w=ref_c2w)
     point_cloud_from_depth = generate_point_cloud(img=ref_img, depth=aligned_depth, intrinsics=ref_K, c2w=ref_c2w)
-    point_cloud_from_depth[:, 3:] = [0,255,0]
+    # point_cloud_from_depth[:, 3:] = [0,255,0]
     
     point_cloud_from_colmap = np.zeros((len(pcc.points), 6))
     point_cloud_from_colmap[:, :3] = pcc.points
@@ -327,25 +380,64 @@ if __name__ == "__main__":
     # point_cloud_from_colmap[-1*(facing_camera_indices-1), 3] = 255
 
     stacked_clouds = np.vstack([point_cloud_from_colmap, point_cloud_from_depth])
-    store_point_cloud_as_ply(point_cloud=stacked_clouds, path=working_dir / "mixed2.ply")
-
-
-
+    store_point_cloud_as_ply(point_cloud=stacked_clouds, path=working_dir / "mixed.ply")
 
 # if __name__ == "__main__": 
 #     import json 
 #     import cv2 
 
-#     transforms_path = Path("/home/dbl@grazper.net/david-thesis/data/pointcloud/transforms.json")
-#     base_dir = Path("/home/dbl@grazper.net/david-thesis/data/pointcloud")
+#     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/people_only.ply")
+#     pcc = o3d.io.read_point_cloud(str(point_cloud_path))
+
+#     point_cloud_moge_path = Path("/home/dbl@grazper.net/david-thesis/data/test/moge/moge.ply")
+#     pcc2 = o3d.io.read_point_cloud(str(point_cloud_moge_path))
+#     working_dir = Path("/home/dbl@grazper.net/david-thesis/data/test")
+#     transforms_path = working_dir / "transforms.json"
+#     with open(transforms_path, "r") as f:
+#         metadata = json.load(f)
+
+#     ref_frame = metadata["frames"][metadata["ref"]]
+#     ref_c2w = np.array(ref_frame["transform_matrix"])
+    
+#     # Extract only the point facing the camera? Hopefully 
+#     normals = np.asarray(pcc.normals)
+#     w2c = np.linalg.inv(ref_c2w)
+#     R, t = w2c[:3, :3], w2c[:3, 3]
+#     facing_camera_indices = normals @ R.T @ np.array([0,0,-1]) > 0
+#     # facing_camera_indices = normals @ np.array([-1,0,0]) > 0 # z- is forward
+#     pcc = pcc.select_by_index(np.where(facing_camera_indices)[0])
+    
+    
+    
+    
+#     point_cloud_from_colmap = np.zeros((len(pcc.points), 6))
+#     point_cloud_from_colmap[:, :3] = pcc.points
+#     point_cloud_from_colmap[:, 5] = 255
+
+#     point_cloud_from_moge = np.zeros((len(pcc2.points), 6))
+#     point_cloud_from_moge[:, :3] = pcc2.points
+#     point_cloud_from_moge[:, 4] = 255
+#     # point_cloud_from_colmap[facing_camera_indices, 5] = 255
+#     # point_cloud_from_colmap[-1*(facing_camera_indices-1), 3] = 255
+
+#     stacked_clouds = np.vstack([point_cloud_from_colmap, point_cloud_from_moge])
+#     store_point_cloud_as_ply(point_cloud=stacked_clouds, path=working_dir / "mixed2.ply")
+
+######################### Pointcloud from multiple depth maps #########################
+# if __name__ == "__main__": 
+#     import json 
+#     import cv2 
+
+#     transforms_path = Path("/home/dbl@grazper.net/david-thesis/data/test/transforms.json")
+#     base_dir = Path("/home/dbl@grazper.net/david-thesis/data/test")
     
 #     with open(transforms_path, "r") as f:
 #         metadata = json.load(f)
 
 #     # Adjust depth maps 
-#     # point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/pointcloud/only_people.ply")
-#     # pcd = o3d.io.read_point_cloud(str(point_cloud_path))
-#     # adjust_depth_estimates_with_gt_point_cloud(metadata=metadata, working_dir=base_dir, target_pc=pcd)
+#     point_cloud_path = Path("/home/dbl@grazper.net/david-thesis/data/test/people_only.ply")
+#     pcd = o3d.io.read_point_cloud(str(point_cloud_path))
+#     adjust_depth_estimates_with_gt_point_cloud(metadata=metadata, working_dir=base_dir, target_pc=pcd)
     
 #     imgs = [] 
 #     Ks = [] 
@@ -367,4 +459,4 @@ if __name__ == "__main__":
 #         c2ws.append(c2w)
     
 #     point_cloud_np = multiple_point_clouds(imgs=imgs, depths=depths, intrinsics=Ks, c2ws=c2ws)
-#     store_point_cloud_as_ply(point_cloud_np, path=base_dir / "joint_point_cloud.ply")
+#     store_point_cloud_as_ply(point_cloud_np, path=base_dir / "joint_point_cloud_adjusted_mean.ply")
