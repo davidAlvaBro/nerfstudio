@@ -14,6 +14,7 @@ def run_pipelines():
     parser.add_argument("--gt_pointcloud", required=True, type=str, help="Path to the point cloud to compare the depths with.")
     parser.add_argument("--working_dir", required=True, type=str, help="Path parent folder of transforms.json file and ./depths.")
     parser.add_argument("--only_ref", action="store_true", help="Update only the reference image.")
+    parser.add_argument("--zoomed", action="store_true", help="Use the zoomed intrinsics")
     args = parser.parse_args()
     
     data_folder = Path(args.working_dir)
@@ -22,17 +23,19 @@ def run_pipelines():
     
     pc_colmap = o3d.io.read_point_cloud(args.gt_pointcloud)
 
+    addition = "zoomed_" if args.zoomed else ""
+    
     for frame in metadata["frames"]: 
         if args.only_ref and not frame == metadata["frames"][metadata["ref"]]: 
             continue
 
         # update the depth 
         depth = np.load(data_folder / frame["depth_path"])
-        K = np.array([[frame["fl_x"], 0, frame["cx"]],
-                    [0, frame["fl_y"], frame["cy"]],
+        K = np.array([[frame[f"{addition}fl_x"], 0, frame[f"{addition}cx"]],
+                    [0, frame[f"{addition}fl_y"], frame[f"{addition}cy"]],
                     [0,0,1]])
-        c2w = np.array(frame["transform_matrix"])
-        img_shape = (frame["h"],frame["w"])
+        c2w = np.array(frame[f"{addition}transform_matrix"])
+        img_shape = (frame[f"{addition}h"], frame[f"{addition}w"])
         
         target_depth, mask = depth_from_pc_and_camera(c2w=c2w, K=K, img_shape=img_shape, point_cloud=pc_colmap)
 
