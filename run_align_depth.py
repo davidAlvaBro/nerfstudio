@@ -34,7 +34,7 @@ def run_pipelines():
         K = np.array([[frame[f"{addition}fl_x"], 0, frame[f"{addition}cx"]],
                     [0, frame[f"{addition}fl_y"], frame[f"{addition}cy"]],
                     [0,0,1]])
-        c2w = np.array(frame[f"{addition}transform_matrix"])
+        c2w = np.array(frame["transform_matrix"])
         img_shape = (frame[f"{addition}h"], frame[f"{addition}w"])
         
         target_depth, mask = depth_from_pc_and_camera(c2w=c2w, K=K, img_shape=img_shape, point_cloud=pc_colmap)
