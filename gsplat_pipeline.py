@@ -149,7 +149,7 @@ def initialize_gsplat_config(data_folder: Path, working_dir: Path, experiment_na
 def train_gsplat(data_folder: Path, 
                      working_dir: Path,
                      max_steps: int = 10_000, 
-                     experiment_name: str = "gsplat_exp",
+                     experiment_name: str = "gaussian",
                      project_name: str = "nerfstudio-project",
                      downscale_factor: int = 1,
                      disable_viewer: bool = True,
@@ -247,12 +247,39 @@ def train_gsplat(data_folder: Path,
     return _latest_ckpt_path(run_dir=trainer.base_dir)
 
 
+def render_with_min_dist(model, cam, min_dist=2.0):
+    """
+    Wrapper to 'model.get_outputs_for_camera(cam)' which sets the opacity of clouds closer than 'min_dist' to 0.
+    """
+    cam = cam.to(model.device)
+
+    means = model.means
+    opac = model.opacities
+
+    # Camera origin
+    c_origin = cam.camera_to_worlds[0, :, 3]
+    d = torch.linalg.norm(means - c_origin, dim=-1)
+    keep = d >= float(min_dist)
+
+    # Backup + mute near gaussians
+    op_backup = opac.data.clone()
+    opac.data[~keep] = -20.0
+
+    # Render image
+    out = model.get_outputs_for_camera(cam)
+
+    # Restore
+    opac.data.copy_(op_backup)
+
+    return out
+
+
 @torch.no_grad()
 def render_gsplat(ckpt_path: Path, 
                   working_dir: Path,
                   data_folder: Path, 
                   out_dir: Path, 
-                  experiment_name: str = "gsplat_exp",
+                  experiment_name: str = "gaussian",
                   project_name: str = "nerfstudio-project", 
                   save_images: bool = True, 
                   downscale_factor: int = 1) -> Tuple[List[Path], List[str]]: 
@@ -294,7 +321,7 @@ def render_gsplat(ckpt_path: Path,
     if Path(validation_frame_names[0]).parent != Path('.'): # TODO find a better way to do this
         ensure_dir(out_dir / Path(validation_frame_names[0]).parent)
     for i in range(len(eval_cameras)):
-        out = model.get_outputs_for_camera(eval_cameras[i:i+1])
+        out = render_with_min_dist(model, eval_cameras[i:i+1])
         rgb = out['rgb'].clamp(0,1).cpu().numpy()
         img = (rgb*255.0 + 0.5).astype(np.uint8)
         if save_images: 
@@ -307,13 +334,18 @@ def render_gsplat(ckpt_path: Path,
 
 
 if __name__ == "__main__":
-    data = Path("/workspace/dataset") 
+    data = Path("/workspace/data/test") 
     working_dir = Path("temp")
-    # from time import perf_counter
-    # t0 = perf_counter()
-    cfg_path = train_gsplat(data, working_dir=working_dir, max_steps=6000, disable_viewer=False, track_training=True, experiment_name="demo_gsplat")
-    # print(f"Time : {perf_counter() - t0:0.4f}s")
+    # # from time import perf_counter
+    # # t0 = perf_counter()
+    # cfg_path = train_gsplat(data, working_dir=working_dir, max_steps=6000, disable_viewer=False, track_training=True, experiment_name="demo_gsplat")
+    # # print(f"Time : {perf_counter() - t0:0.4f}s")
 
-    from make_gif import make_gif
-    make_gif(path=Path("temp/images/train"), out_path=Path("gifs/gsplat_train_no.gif"))
-    make_gif(path=Path("temp/images/val"), out_path=Path("gifs/gsplat_val_no.gif"))
+    # from make_gif import make_gif
+    # make_gif(path=Path("temp/images/train"), out_path=Path("gifs/gsplat_train_no.gif"))
+    # make_gif(path=Path("temp/images/val"), out_path=Path("gifs/gsplat_val_no.gif"))
+
+    render_gsplat(ckpt_path=Path("/workspace/temp/gaussian/splatfacto/nah/nerfstudio_models/step-000003999.ckpt"), 
+                  working_dir=working_dir, 
+                  data_folder=data,
+                  out_dir=data)
