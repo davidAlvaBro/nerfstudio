@@ -110,6 +110,28 @@ def remove_walls(point_cloud, n_walls: int = 5):
     inside_points = point_cloud.select_by_index(np.where(inside_mask)[0])
     return inside_points
 
+# def point_cloud_near_annotation(point_cloud, poses_3d, threshold: float = 0.1): 
+#     """
+#     removes all point in the pointcloud that is not within 'threshold' (in meters) of a keypoint from 'poses_3d'
+#     """
+#     points = np.asarray(point_cloud.points)
+#     distances = np.linalg.norm(points[:, None, None, :] - poses_3d[None, :, :, :], axis=-1).reshape(points.shape[0], -1)
+#     min_dist = np.min(distances, axis=1) 
+#     only_people_pc = point_cloud.select_by_index(np.where(min_dist < threshold)[0])
+#     return only_people_pc
+
+def point_cloud_near_annotation(point_cloud, poses_3d, threshold: float = 0.1): 
+    """
+    removes all point in the pointcloud that is not within 'threshold' (in meters) of a bbox around each annotation in 'pose_3d'
+    """
+    points = np.asarray(point_cloud.points)
+    lower_corners = np.min(poses_3d, axis=1) - threshold
+    upper_corners = np.max(poses_3d, axis=1) + threshold
+    # Check that a point is between one of the boxes (larger than lower corners AND smaller than upper) - 'all(axis=-1)' is over the 3 dim
+    in_boxes = ((points[:, None, :] >= lower_corners[None, :, :]) & (points[:, None, :] <= upper_corners[None, :, :])).all(axis=-1)
+    only_people_pc = point_cloud.select_by_index(np.where(in_boxes.any(axis=1) != False)[0]) # 'any(axis=1)' because we are kept if we are in any box
+    return only_people_pc
+
 def depth_map_from_point_cloud(K: np.ndarray, img_shape: Tuple[int, int], point_cloud: np.ndarray): 
     """
     Given the coordinates of a point cloud compute a depth map of shape 'img_shape'

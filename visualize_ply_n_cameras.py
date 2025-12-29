@@ -44,8 +44,16 @@ ply = "/home/dbl@grazper.net/david-thesis/data/test/mixed.ply"
 # transforms_path = "/home/dbl@grazper.net/david-thesis/data/success1/mvgen/transforms.json"
 # ply = "/home/dbl@grazper.net/david-thesis/data/success1/fused.ply"
 
+
+# THIS IS JUST FOR CHECKING THE DATASET
+base = "/home/dbl@grazper.net/david-thesis/data/uncurated/" + "30"
+transforms_path = base + "/transforms.json"
+ply = base + "/people_only.ply"
+# ply = base + "/fused.ply"
+
 with open(transforms_path, "r") as f: # Notice that the mvgen intrinsics are rescaled
     data = json.load(f)
+print(data["recording_key"], data["frame_idx"])
 extrinsics = []
 # intrinsics = []
 for cam in data["frames"]: 
@@ -96,24 +104,24 @@ for s in cam_spheres:
     vis.add_geometry(s)
 
 # View other stuff 
-directions = np.load("/home/dbl@grazper.net/david-thesis/data/test/directions.npy")
-origins = np.load("/home/dbl@grazper.net/david-thesis/data/test/origins.npy")
+# directions = np.load("/home/dbl@grazper.net/david-thesis/data/test/directions.npy")
+# origins = np.load("/home/dbl@grazper.net/david-thesis/data/test/origins.npy")
 
-origins = origins[:, 0:1] @ np.diag([1,-1,-1])
-directions = directions[:, 0:1] @ np.diag([1,-1,-1])
-points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(0, 10, 0.1)[:, None, None, None]
+# origins = origins[:, 0:1] @ np.diag([1,-1,-1])
+# directions = directions[:, 0:1] @ np.diag([1,-1,-1])
+# points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(0, 10, 0.1)[:, None, None, None]
 
-# points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(-8, -6, 0.1)[:, None, None, None]
-points_3d = points_3d.reshape(-1, 3)
-# change coordinate system 
-points_3d = points_3d @ np.diag([1,-1,-1])
-points_radius = 0.05
-for i, p in enumerate(points_3d):
-    s = o3d.geometry.TriangleMesh.create_sphere(radius=points_radius)
-    s.compute_vertex_normals()
-    s.paint_uniform_color([0.0, 0.0, 1.0])  # blue
-    s.translate(p)
-    vis.add_geometry(s)
+# # points_3d = origins[None, :, :] + directions[None, :, :] * np.arange(-8, -6, 0.1)[:, None, None, None]
+# points_3d = points_3d.reshape(-1, 3)
+# # change coordinate system 
+# points_3d = points_3d @ np.diag([1,-1,-1])
+# points_radius = 0.05
+# for i, p in enumerate(points_3d):
+#     s = o3d.geometry.TriangleMesh.create_sphere(radius=points_radius)
+#     s.compute_vertex_normals()
+#     s.paint_uniform_color([0.0, 0.0, 1.0])  # blue
+#     s.translate(p)
+#     vis.add_geometry(s)
 
 
 opt = vis.get_render_option()

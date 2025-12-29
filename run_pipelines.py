@@ -14,7 +14,7 @@ from gsplat_pipeline import train_gsplat, render_gsplat
 from utils import remove, load_transforms_json
 # from flythrough_cameras import intermediate_poses_between_training_views
 from yolo_pipeline import apply_yolo
-from point_cloud_from_depth import generate_point_cloud, store_point_cloud_as_ply, remove_walls, adjust_depth_estimates_with_gt_point_cloud, multiple_point_clouds
+from point_cloud_from_depth import generate_point_cloud, store_point_cloud_as_ply, remove_walls, adjust_depth_estimates_with_gt_point_cloud, multiple_point_clouds, point_cloud_near_annotation
 
 
 
@@ -27,6 +27,7 @@ def run_pipelines():
     parser.add_argument("--run_colmap", action="store_true", help="If not used either a depth map is provided in transform.json or a .ply file already exists and is referenced in transform.json")
     parser.add_argument("--gs_initial", default="multiple_depths", help="Either 'colmap', 'multiple_depths', or 'ref_depth' depnding on which pointcloud to initialize the gs")
     parser.add_argument("--name", default="test", type=str, help="Used to identify Gaussian Splat. Not relevant if 'clean_working_dir'.")
+    parser.add_argument("--annotation_path", default="", type=str, help="If set the 'people only' pipeline uses the annotation instead of trying to remove exactly 5 walls")
     args = parser.parse_args()
     data_folder = Path(args.data_folder)
     metadata_path = data_folder / "transforms.json"
@@ -49,7 +50,11 @@ def run_pipelines():
 
         # 2.5 Clean the colmap prediction to only have the people 
         colmap_point_cloud = o3d.io.read_point_cloud(point_cloud_path)
-        colmap_people_pc = remove_walls(colmap_point_cloud) # TODO figure out why this is empty... 
+        if args.annotation_path != "": 
+            annotation = np.load(args.annotation_path, allow_pickle=True)
+            colmap_people_pc = point_cloud_near_annotation(point_cloud=colmap_point_cloud, poses_3d=annotation["3d_pose"])
+        else : 
+            colmap_people_pc = remove_walls(colmap_point_cloud)
         colmap_people_pc_path = str(output_dir / "people_only.ply")
         o3d.io.write_point_cloud(
             colmap_people_pc_path,
