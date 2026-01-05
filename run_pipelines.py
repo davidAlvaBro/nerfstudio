@@ -78,8 +78,8 @@ def run_pipelines():
         c2ws = [] 
         depths = []
         for frame in run_args["frames"]: 
-            if not frame["file_path"][-15:-10] in ["cam20", "cam24", "cam30", "cam34"]: # TODO : should be someplace else
-                continue
+            # if not frame["file_path"][-15:-10] in ["cam20", "cam24", "cam30", "cam34"]: # TODO : should be someplace else
+            #     continue
             depth = np.load(data_folder / frame["depth_path"])
             img = cv2.cvtColor(cv2.imread(data_folder / frame["file_path"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
             K = np.array([[frame["fl_x"], 0, frame["cx"]],
