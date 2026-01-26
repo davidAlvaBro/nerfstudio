@@ -189,7 +189,7 @@ def build_and_write_colmap_text(transforms_path, out_dir, model="PINHOLE"):
     return parent_folder
 
 
-def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Path, out_path: Path, cleanup: bool = True, sparse_only: bool = False) -> Tuple[float, float]: 
+def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Path, out_path: Path, cleanup: bool = True, sparse_only: bool = False, seed:int=420) -> Tuple[float, float]: 
     """
     This function is a crude way to run the colmap pipeline with given extrinsics. 
     The extrinsics and images must be in the "data" directory. 
@@ -227,6 +227,7 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
         "colmap", "feature_extractor",
         "--database_path", str(db),
         "--image_path", str(images),
+        "--random_seed", str(seed),
         "--SiftExtraction.use_gpu", "1" # was *sift_gpu_flag if I want that back 
     ])
 
@@ -235,6 +236,7 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
     run([
         "colmap", "exhaustive_matcher", # If it takes to long change to "sequential_matcher"
         "--database_path", str(db),
+        "--random_seed", str(seed),
         "--SiftMatching.use_gpu", "1" # Again remove this if not on GPU 
     ])
     
@@ -245,6 +247,7 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
         "--database_path", str(db),
         "--image_path", str(images),
         "--input_path", str(text_model),
+        "--random_seed", str(seed),
         "--output_path", str(sparse),
     ])
 
@@ -253,6 +256,7 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
         "colmap", "model_converter",
         "--input_path", str(sparse),
         "--output_path", str(sparse_ply),
+        "--random_seed", str(seed),
         "--output_type", "PLY",
     ])
     t_sparse_done = perf_counter()
@@ -268,12 +272,14 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
         "colmap", "image_undistorter",
         "--image_path", str(images),
         "--input_path", str(sparse),
+        "--random_seed", str(seed),
         "--output_path", str(dense),
     ])
 
     # PatchMatch stereo
     run([
         "colmap", "patch_match_stereo",
+        "--random_seed", str(seed),
         "--workspace_path", str(dense),
         # "--PatchMatchStereo.max_image_size", str(3200), # Have not played with any of these settings 
         # "--PatchMatchStereo.geom_consistency", True,
@@ -286,6 +292,7 @@ def run_colmap_frozen_poses(metadata_path: Path, data_folder: Path, workdir: Pat
     run([
         "colmap", "stereo_fusion",
         "--workspace_path", str(dense),
+        "--random_seed", str(seed),
         "--output_path", str(fused_ply),
         ])
     

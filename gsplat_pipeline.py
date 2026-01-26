@@ -116,7 +116,7 @@ def add_fixed_train_render_callback(
 ############### TO here 
 
 
-def initialize_gsplat_config(data_folder: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1):
+def initialize_gsplat_config(data_folder: Path, working_dir: Path, experiment_name: str, project_name: str, downscale_factor: int = 1, seed:int=1234):
     """
     Initializes the part necessesary for both training and rendering.   
     """
@@ -131,6 +131,8 @@ def initialize_gsplat_config(data_folder: Path, working_dir: Path, experiment_na
     base_cfg.output_dir = working_dir
     base_cfg.project_name = project_name
     base_cfg.experiment_name = experiment_name
+    base_cfg.machine.seed = seed
+    base_cfg.pipeline.datamanager.train_cameras_sampling_seed = seed
     base_cfg.timestamp = "nah"
     dp = NerfstudioDataParserConfig(
         data=data_folder,
@@ -154,7 +156,8 @@ def train_gsplat(data_folder: Path,
                      downscale_factor: int = 1,
                      disable_viewer: bool = True,
                      track_training: bool = False, 
-                     viewer_port: int = 7007) -> Path:
+                     viewer_port: int = 7007,
+                     seed:int=666) -> Path:
     """
     This function trains a Gsplat on the data given in "data_dir". 
     This directory has to have an "image" folder with images, a ".ply" point cloud file and a "transforms.json",
@@ -165,7 +168,7 @@ def train_gsplat(data_folder: Path,
 
     # # Edit settings which have been passed in 
     # base_cfg.data = data_dir
-    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor, seed=seed)
     base_cfg.max_num_iterations = int(max_steps)
     # Ensurance that no frames are being moved to evaluation if NerfStudio somehow desides to evaluate anyway
     # TODO : Check if this does anything
@@ -282,13 +285,14 @@ def render_gsplat(ckpt_path: Path,
                   experiment_name: str = "gaussian",
                   project_name: str = "nerfstudio-project", 
                   save_images: bool = True, 
-                  downscale_factor: int = 1) -> Tuple[List[Path], List[str]]: 
+                  downscale_factor: int = 1,
+                  seed:int=666) -> Tuple[List[Path], List[str]]: 
     """
     This function takes in parameters to an already trained Gsplat and renders the given views. 
     """
     metadata_path = data_folder / "transforms.json"
     # Standard gsplat settings 
-    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor)
+    base_cfg = initialize_gsplat_config(data_folder=data_folder, working_dir=working_dir, experiment_name=experiment_name, project_name=project_name, downscale_factor=downscale_factor, seed=seed)
 
     base_cfg.load_checkpoint = ckpt_path 
 

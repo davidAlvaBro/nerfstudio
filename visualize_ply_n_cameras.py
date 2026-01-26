@@ -46,14 +46,18 @@ ply = "/home/dbl@grazper.net/david-thesis/data/test/mixed.ply"
 
 
 # THIS IS JUST FOR CHECKING THE DATASET
-base = "/home/dbl@grazper.net/david-thesis/data/uncurated/" + "30"
-transforms_path = base + "/transforms.json"
-ply = base + "/people_only.ply"
+# base = "/home/dbl@grazper.net/david-thesis/data/curated_all_views/" + "149"
+# transforms_path = base + "/transforms.json"
+# ply = base + "/people_only.ply"
 # ply = base + "/fused.ply"
+
+# PRESENTATION 
+transforms_path = "/home/dbl@grazper.net/david-thesis/data/second_dataset/uncurated/3/transforms.json"
+ply = "/home/dbl@grazper.net/david-thesis/data/second_dataset/uncurated/3/bboxs.ply"
 
 with open(transforms_path, "r") as f: # Notice that the mvgen intrinsics are rescaled
     data = json.load(f)
-print(data["recording_key"], data["frame_idx"])
+
 extrinsics = []
 # intrinsics = []
 for cam in data["frames"]: 

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import argparse
+import copy
 
 import numpy as np
 import torch as th 
@@ -28,13 +29,15 @@ def run_pipelines():
     parser.add_argument("--gs_initial", default="multiple_depths", help="Either 'colmap', 'multiple_depths', or 'ref_depth' depnding on which pointcloud to initialize the gs")
     parser.add_argument("--name", default="test", type=str, help="Used to identify Gaussian Splat. Not relevant if 'clean_working_dir'.")
     parser.add_argument("--annotation_path", default="", type=str, help="If set the 'people only' pipeline uses the annotation instead of trying to remove exactly 5 walls")
+    parser.add_argument("--use_only_path", default=None, type=str, help="Path to a list of view names to use in training the gaussian splatting.")
+    parser.add_argument("--seed", default=420, type=int, help="Seed for the entire pipeline.")
     args = parser.parse_args()
     data_folder = Path(args.data_folder)
     metadata_path = data_folder / "transforms.json"
     working_dir = Path("temp")
     output_dir = Path(args.output_dir)
-    renders = output_dir / "renders"
-
+    renders = output_dir / "renders2"
+    np.random.seed(args.seed)
     
     # 1. Read the transforms.json and check that every entry is valid 
     run_args = load_transforms_json(metadata_path)
@@ -44,7 +47,7 @@ def run_pipelines():
     # 2. Run the colmap pipeline if flag is set  
     # This puts a fused.ply and a ply.ply in the dataset_path for the g-splat
     if args.run_colmap:
-        _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, data_folder=data_folder, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir)
+        _, _ = run_colmap_frozen_poses(metadata_path=metadata_path, data_folder=data_folder, workdir=working_dir / "colmap", out_path=output_dir, cleanup=args.clean_working_dir, seed=args.seed)
         # Add the fused.ply to the metadata.json to use it in the GS
         point_cloud_path = str(output_dir / "fused.ply") 
 
@@ -54,7 +57,7 @@ def run_pipelines():
             annotation = np.load(args.annotation_path, allow_pickle=True)
             colmap_people_pc = point_cloud_near_annotation(point_cloud=colmap_point_cloud, poses_3d=annotation["3d_pose"])
         else : 
-            colmap_people_pc = remove_walls(colmap_point_cloud)
+            colmap_people_pc = remove_walls(colmap_point_cloud, seed=args.seed)
         colmap_people_pc_path = str(output_dir / "people_only.ply")
         o3d.io.write_point_cloud(
             colmap_people_pc_path,
@@ -118,9 +121,32 @@ def run_pipelines():
         json.dump(run_args, f, ensure_ascii=False, indent=2)
     # If none of the options then there should already exists a 'run_args["ply_file_path"]' along with the file
 
+    # load list of camera names to use for Gassian Splatting reconstructions 
+    # Temporarily remove the other images from the file...
+    if args.use_only_path is not None : 
+        with open(args.use_only_path, "r", encoding="utf-8") as f:
+            views_names = json.load(f)
+        
+        run_args_original = copy.deepcopy(run_args)
+
+        suffixes = tuple(views_names)
+        run_args["frames"] = [
+            frame for frame in run_args["frames"]
+            if Path(frame["file_path"]).name.endswith(suffixes)
+        ]
+
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            json.dump(run_args, f, ensure_ascii=False, indent=2)
+
+    
+        
+
     # 4. Train a Gaussian splatting 
-    ckpt_path = train_gsplat(data_folder=data_folder, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name) 
+    ckpt_path = train_gsplat(data_folder=data_folder, working_dir=working_dir, max_steps = args.gaussian_splat_steps, experiment_name = "gaussian", project_name = args.name, seed=args.seed) 
     # TODO Should I move this outside the normal file structure so the normal structure can be purged while keeping the gsplat? 
+    if args.use_only_path is not None : 
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            json.dump(run_args_original, f, ensure_ascii=False, indent=2)
     
     # 5. Render the new views with the Gaussian splatting. 
     _, rendered_image_names = render_gsplat(ckpt_path=ckpt_path, 
@@ -128,12 +154,13 @@ def run_pipelines():
                                                           data_folder=data_folder, 
                                                           out_dir=renders,  
                                                           experiment_name="gaussian", 
-                                                          project_name=args.name)
+                                                          project_name=args.name,
+                                                          seed=args.seed)
     
     # 6. Run YOLO pipeline 
     yolo_annotations = apply_yolo(data_folder=data_folder, out_path=output_dir)
     
-    # TODO add cleanup if I want it 
+
 
 
 

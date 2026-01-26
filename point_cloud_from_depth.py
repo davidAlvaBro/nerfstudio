@@ -77,11 +77,12 @@ end_header
         for x, y, z, r, g, b in point_cloud: 
             f.write(struct.pack("<fffBBB", float(x), float(y), float(z), int(r), int(g), int(b)))    
 
-def remove_walls(point_cloud, n_walls: int = 5): 
+def remove_walls(point_cloud, n_walls: int = 5, seed: int = 320): 
     """
     Removes 'n_walls' planes with must inliers using ransac. 
     This is only used to isolate the people in the Grazper dataset
     """
+    o3d.utility.random.seed(seed) 
     normals = np.zeros((n_walls, 3))
     d = np.zeros((n_walls))
     temporary_walls_removed = o3d.geometry.PointCloud(point_cloud) 
